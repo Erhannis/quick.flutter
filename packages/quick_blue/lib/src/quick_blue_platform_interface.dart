@@ -1,7 +1,9 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:logging/logging.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
+import 'package:quick_blue/quick_blue.dart';
 import 'package:quick_blue/src/method_channel_quick_blue.dart';
 
 import 'models.dart';
@@ -28,7 +30,7 @@ abstract class QuickBluePlatform extends PlatformInterface {
 
   static final Object _token = Object();
 
-  static QuickBluePlatform _instance = MethodChannelQuickBlue();
+  static QuickBluePlatform _instance = Platform.isLinux ? QuickBlueLinux() : MethodChannelQuickBlue(); // Is there a reason this didn't already check platform?
 
   static QuickBluePlatform get instance => _instance;
 
