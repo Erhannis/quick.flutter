@@ -20,6 +20,9 @@ typedef OnServiceDiscovered = void Function(
 typedef OnValueChanged = void Function(
     String deviceId, String characteristicId, Uint8List value);
 
+typedef OnWroteCharacteristic = void Function(
+    String deviceId, String characteristicId, Uint8List value, bool success);
+
 abstract class QuickBluePlatform extends PlatformInterface {
   QuickBluePlatform() : super(token: _token);
 
@@ -60,6 +63,8 @@ abstract class QuickBluePlatform extends PlatformInterface {
       String characteristic, BleInputProperty bleInputProperty);
 
   OnValueChanged? onValueChanged;
+
+  OnWroteCharacteristic? onWroteCharacteristic;
 
   Future<void> readValue(
       String deviceId, String service, String characteristic);

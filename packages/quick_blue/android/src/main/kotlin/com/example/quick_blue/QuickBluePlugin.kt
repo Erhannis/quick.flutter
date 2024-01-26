@@ -344,6 +344,14 @@ class QuickBluePlugin: FlutterPlugin, MethodCallHandler, EventChannel.StreamHand
 
     override fun onCharacteristicWrite(gatt: BluetoothGatt?, characteristic: BluetoothGattCharacteristic, status: Int) {
       //Log.v(TAG, "onCharacteristicWrite ${characteristic.uuid}, ${characteristic.value.contentToString()} $status")
+      sendMessage(messageConnector, mapOf(
+              "deviceId" to gatt.device.address,
+              "wroteCharacteristicValue" to mapOf(
+                      "characteristic" to characteristic.uuid.toString(),
+                      "value" to characteristic.value,
+                      "success" to status == BluetoothGatt.GATT_SUCCESS
+              )
+      ))
     }
 
     override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {

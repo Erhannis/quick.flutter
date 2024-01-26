@@ -758,6 +758,14 @@ namespace
     auto writeOption = bleOutputProperty.compare("withoutResponse") == 0 ? GattWriteOption::WriteWithoutResponse : GattWriteOption::WriteWithResponse;
     auto writeValueStatus = co_await gattCharacteristic.WriteValueAsync(from_bytevc(value), writeOption);
     OutputDebugString((L"WriteValueAsync " + winrt::to_hstring(characteristic) + L", " + winrt::to_hstring(to_hexstring(value)) + L", " + winrt::to_hstring((int32_t)writeValueStatus) + L"\n").c_str());
+    message_connector_->Send(EncodableMap{
+        {"deviceId", std::to_string(gattCharacteristic.Service().Device().BluetoothAddress())},
+        {"wroteCharacteristicValue", EncodableMap{
+                                    {"characteristic", uuid},
+                                    {"value", bytes},
+                                    {"success", writeValueStatus == GattCommunicationStatus::Success},
+                                }},
+    });
   }
 
   void QuickBluePlugin::GattCharacteristic_ValueChanged(GattCharacteristic sender, GattValueChangedEventArgs args)

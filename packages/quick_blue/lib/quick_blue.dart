@@ -60,6 +60,10 @@ class QuickBlue {
     _platform.onValueChanged = onValueChanged;
   }
 
+  static void setOnWroteCharateristicHandler(OnWroteCharacteristic? onWroteCharacteristic) {
+    _platform.onWroteCharacteristic = onWroteCharacteristic;
+  }
+
   static Future<void> readValue(
       String deviceId, String service, String characteristic) {
     return _platform.readValue(deviceId, service, characteristic);

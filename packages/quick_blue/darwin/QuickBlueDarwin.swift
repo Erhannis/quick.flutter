@@ -276,6 +276,14 @@ extension QuickBlueDarwin: CBPeripheralDelegate {
     public func peripheral(_ peripheral: CBPeripheral, didWriteValueFor characteristic: CBCharacteristic, error: Error?) {
         let data = characteristic.value as NSData?
         // print("peripheral:didWriteValueForCharacteristic \(characteristic.uuid.uuidStr) \(String(describing: data)) error: \(String(describing: error))")
+        self.messageConnector.sendMessage([
+            "deviceId": peripheral.uuid.uuidString,
+            "wroteCharacteristicValue": [
+                "characteristic": characteristic.uuid.uuidStr,
+                "value": FlutterStandardTypedData(bytes: characteristic.value!),
+                "success": error != nil
+            ]
+        ])
     }
 
     public func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {

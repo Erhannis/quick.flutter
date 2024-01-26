@@ -40,11 +40,13 @@ class _PeripheralDetailPageState extends State<PeripheralDetailPage> {
     QuickBlue.setConnectionHandler(_handleConnectionChange);
     QuickBlue.setServiceHandler(_handleServiceDiscovery);
     QuickBlue.setValueHandler(_handleValueChange);
+    QuickBlue.setOnWroteCharateristicHandler(_handleOnWroteCharacteristic);
   }
 
   @override
   void dispose() {
     super.dispose();
+    QuickBlue.setOnWroteCharateristicHandler(null);
     QuickBlue.setValueHandler(null);
     QuickBlue.setServiceHandler(null);
     QuickBlue.setConnectionHandler(null);
@@ -60,6 +62,10 @@ class _PeripheralDetailPageState extends State<PeripheralDetailPage> {
 
   void _handleValueChange(String deviceId, String characteristicId, Uint8List value) {
     debugPrint('_handleValueChange $deviceId, $characteristicId, ${hex.encode(value)}');
+  }
+
+  void _handleOnWroteCharacteristic(String deviceId, String characteristicId, Uint8List value, bool success) {
+    debugPrint('_handleOnWroteCharacteristic $deviceId, $characteristicId, ${hex.encode(value)}, $success');
   }
 
   final serviceUUID = TextEditingController(text: WOODEMI_SERV__COMMAND);
