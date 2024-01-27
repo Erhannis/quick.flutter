@@ -94,6 +94,11 @@ class BlueConnectionState {
     }
     throw ArgumentError.value(value);
   }
+
+  @override
+  String toString() {
+    return value;
+  }
 }
 
 class BleInputProperty {
