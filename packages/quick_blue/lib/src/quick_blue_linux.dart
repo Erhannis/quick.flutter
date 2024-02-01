@@ -216,10 +216,17 @@ class QuickBlueLinux extends QuickBluePlatform {
       BleOutputProperty bleOutputProperty) async {
     var c = _getCharacteristic(deviceId, service, characteristic);
 
-    if (bleOutputProperty == BleOutputProperty.withResponse) {
-      await c.writeValue(value, type: BlueZGattCharacteristicWriteType.request);
-    } else {
-      await c.writeValue(value, type: BlueZGattCharacteristicWriteType.command);
+    try {
+      if (bleOutputProperty == BleOutputProperty.withResponse) {
+        await c.writeValue(value, type: BlueZGattCharacteristicWriteType.request);
+      } else {
+        await c.writeValue(value, type: BlueZGattCharacteristicWriteType.command);
+      }
+      //CHECK I'm not sure if writeValue waits for write confirmation before returning, so I don't know if this is right.  I also don't know if withoutResponse should trigger this or not.
+      onWroteCharacteristic?.call(deviceId, characteristic, value, true);
+    } catch (e, s) {
+      onWroteCharacteristic?.call(deviceId, characteristic, value, false);
+      rethrow;
     }
     _log('writeValue $characteristic, ${hex.encode(value)}');
   }
