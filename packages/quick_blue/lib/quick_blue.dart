@@ -39,7 +39,7 @@ class QuickBlue {
   static Future<void> disconnect(String deviceId) =>
       _platform.disconnect(deviceId);
 
-  //RAINY Currently Linux does not notify of a disconnect; it doesn't register with anything or listen for any such messages.  Haven't checked other platforms.
+  //RAINY Currently Linux does not notify of a disconnect; it doesn't register with anything or listen for any such messages.  Not sure abt other platforms - Android does notify of disconnect.
   static void setConnectionHandler(OnConnectionChanged? onConnectionChanged) {
     _platform.onConnectionChanged = onConnectionChanged;
   }
