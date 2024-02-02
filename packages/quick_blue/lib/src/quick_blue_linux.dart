@@ -223,6 +223,7 @@ class QuickBlueLinux extends QuickBluePlatform {
         await c.writeValue(value, type: BlueZGattCharacteristicWriteType.command);
       }
       //CHECK I'm not sure if writeValue waits for write confirmation before returning, so I don't know if this is right.  I also don't know if withoutResponse should trigger this or not.
+      // Note: testing tentatively suggests that it does wait.
       onWroteCharacteristic?.call(deviceId, characteristic, value, true);
     } catch (e, s) {
       onWroteCharacteristic?.call(deviceId, characteristic, value, false);
