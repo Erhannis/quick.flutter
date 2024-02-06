@@ -23,7 +23,7 @@ typedef OnValueChanged = void Function(
     String deviceId, String characteristicId, Uint8List value);
 
 typedef OnWroteCharacteristic = void Function(
-    String deviceId, String characteristicId, Uint8List value, bool success);
+    String deviceId, String characteristicId, Uint8List? value, bool success);
 
 abstract class QuickBluePlatform extends PlatformInterface {
   QuickBluePlatform() : super(token: _token);

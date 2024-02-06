@@ -280,7 +280,7 @@ extension QuickBlueDarwin: CBPeripheralDelegate {
             "deviceId": peripheral.uuid.uuidString,
             "wroteCharacteristicValue": [
                 "characteristic": characteristic.uuid.uuidStr,
-                "value": FlutterStandardTypedData(bytes: characteristic.value!),
+                "value": characteristic.value != nil ? FlutterStandardTypedData(bytes: characteristic.value!) : nil,
                 "success": error != nil
             ]
         ])
