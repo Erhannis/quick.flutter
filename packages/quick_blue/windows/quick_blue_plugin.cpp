@@ -761,8 +761,8 @@ namespace
     message_connector_->Send(EncodableMap{
         {"deviceId", std::to_string(gattCharacteristic.Service().Device().BluetoothAddress())},
         {"wroteCharacteristicValue", EncodableMap{
-                                    {"characteristic", uuid},
-                                    {"value", bytes},
+                                    {"characteristic", characteristic},
+                                    {"value", value},
                                     {"success", writeValueStatus == GattCommunicationStatus::Success},
                                 }},
     });
