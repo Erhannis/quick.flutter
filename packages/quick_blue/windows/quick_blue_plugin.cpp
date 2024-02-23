@@ -326,6 +326,8 @@ namespace
       std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result)
   {
     auto method_name = method_call.method_name();
+    //std::wcerr << ((L"HandleMethodCall" + std::to_wstring(1) + L"\n").c_str());
+    //std::wcerr << ((L"HandleMethodCall " + winrt::to_hstring(method_name) + L"\n").c_str());
     OutputDebugString((L"HandleMethodCall " + winrt::to_hstring(method_name) + L"\n").c_str());
     if (method_name.compare("isBluetoothAvailable") == 0)
     {
@@ -342,21 +344,27 @@ namespace
         }
 
         auto args = std::get<EncodableMap>(*method_call.arguments());
-        auto serviceUUIDs = std::get<EncodableList>(args[EncodableValue("serviceUUIDs")]);
+        auto it = args.find(EncodableValue("serviceUUIDs"));
+        if (it != args.end() && std::holds_alternative<EncodableList>(it->second)) {
+          auto serviceUUIDs = std::get<EncodableList>(it->second);
 
-        if (serviceUUIDs.size() > 0)
-        {
-          auto filter = BluetoothLEAdvertisementFilter();
-          auto advert = BluetoothLEAdvertisement();
-          for (size_t i = 0; i < serviceUUIDs.size(); i++)
+          if (serviceUUIDs.size() > 0)
           {
-            std::string serviceString = std::get<std::string>(serviceUUIDs[i]);
-            auto serviceGuid = make_guid(LongUUID(serviceString).c_str());
-            advert.ServiceUuids().Append(serviceGuid);
-            OutputDebugStringA(to_uuidstr(serviceGuid).c_str());
+            auto filter = BluetoothLEAdvertisementFilter();
+            auto advert = BluetoothLEAdvertisement();
+            for (size_t i = 0; i < serviceUUIDs.size(); i++)
+            {
+              std::string serviceString = std::get<std::string>(serviceUUIDs[i]);
+              auto serviceGuid = make_guid(LongUUID(serviceString).c_str());
+              advert.ServiceUuids().Append(serviceGuid);
+              OutputDebugStringA(to_uuidstr(serviceGuid).c_str());
+            }
+            filter.Advertisement(advert);
+            bluetoothLEWatcher.AdvertisementFilter(filter);
           }
-          filter.Advertisement(advert);
-          bluetoothLEWatcher.AdvertisementFilter(filter);
+          else
+          {
+          }
         }
         else
         {
