@@ -86,3 +86,4 @@ class QuickBlue {
   static Future<int> requestMtu(String deviceId, int expectedMtu) =>
       _platform.requestMtu(deviceId, expectedMtu);
 }
+

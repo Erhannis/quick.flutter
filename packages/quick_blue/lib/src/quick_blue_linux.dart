@@ -78,7 +78,7 @@ class QuickBlueLinux extends QuickBluePlatform {
   }
 
   @override
-  Future<void> startScan(List<String>? serviceUUIDs) async {
+  Future<void> startScan(List<String>? serviceUUIDs) async { //DUMMY Note not XString
     await _ensureInitialized();
     _log('startScan invoke success');
 
@@ -101,7 +101,7 @@ class QuickBlueLinux extends QuickBluePlatform {
   }
 
   // FIXME Close
-  final StreamController<dynamic> _scanResultController =
+  final StreamController<dynamic> _scanResultController = //DUMMY Ensure what's added
       StreamController.broadcast();
 
   @override
@@ -143,26 +143,94 @@ class QuickBlueLinux extends QuickBluePlatform {
   Future<void> discoverServices(String deviceId) async {
     var device = _findDeviceById(deviceId);
 
+    Map<String, int> ss = {};
     for (var service in device.gattServices) {
       _log("Service ${service.uuid}");
+      var sxi = ss["${service.uuid}"] ??= 0;
+      var sxs = s2x("${service.uuid}", sxi);
+
+      Map<String, int> cs = {};
+      List<XString> characteristics = [];
       for (var characteristic in service.characteristics) {
         _log("    Characteristic ${characteristic.uuid}");
+        var cxi = cs["${characteristic.uuid}"] ??= 0;
+        characteristics.add(s2x("${characteristic.uuid}", cxi));
       }
 
-      var characteristics =
-          service.characteristics.map((e) => e.uuid.toString()).toList();
       onServiceDiscovered?.call(
-          deviceId, service.uuid.toString(), characteristics);
+          deviceId, sxs, characteristics);
     }
   }
 
+  String x2ss(XString xs) {
+    var i = xs.indexOf(":");
+    if (i == -1) {
+      return xs;
+    } else {
+      return xs.substring(0, i);
+    }
+  }
+
+  int? x2si(XString xs) {
+    var i = xs.indexOf(":");
+    if (i == -1) {
+      return 0; //DUMMY //CHECK Not sure about this one
+    }
+    return int.tryParse(xs.substring(i+1));
+  }
+
+  XString s2x(String s, [int i = 0]) {
+    return "$s:$i";
+  }
+
+  XString ensureX(String s) {
+    var i = s.indexOf(":");
+    if (i == -1) {
+      return "$s:0";
+    }
+    return s;
+  }
+
   BlueZGattCharacteristic _getCharacteristic(
-      String deviceId, String service, String characteristic) {
+      String deviceId, XString service, XString characteristic) {
     var device = _findDeviceById(deviceId);
-    var s = device.gattServices
-        .firstWhereOrNull((s) => s.uuid.toString() == service);
-    var c = s?.characteristics
-        .firstWhereOrNull((c) => c.uuid.toString() == characteristic);
+    service = ensureX(service);
+    characteristic = ensureX(characteristic);
+
+    // XString to object
+
+    BlueZGattService? s = null;
+
+    //THINK I do this in more than one place....
+    // I'm assuming they're in a fixed order, which seems reasonable.
+    {
+      Map<String, int> ss = {};
+      for (var x in device.gattServices) {
+        var sxi = ss["${x.uuid}"] ??= 0;
+        var sxs = s2x("${x.uuid}", sxi);
+
+        if (service == sxs) {
+          s = x;
+          break;
+        }
+      }
+    }
+
+    BlueZGattCharacteristic? c = null;
+    if (s != null) {
+      //THINK I do this in more than one place....
+      // I'm assuming they're in a fixed order, which seems reasonable.
+      Map<String, int> cs = {};
+      for (var x in s.characteristics) {
+        var cxi = cs["${x.uuid}"] ??= 0;
+        var cxs = s2x("${x.uuid}", cxi);
+
+        if (characteristic == cxs) {
+          c = x;
+          break;
+        }
+      }
+    }
 
     if (c == null) {
       throw Exception('Unknown characteristic:$characteristic');
@@ -170,12 +238,15 @@ class QuickBlueLinux extends QuickBluePlatform {
     return c;
   }
 
-  final Map<String, StreamSubscription<List<String>>>
+  // <"xservice*xchar", List<properties>>
+  final Map<XString, StreamSubscription<List<String>>> //DUMMY ???
       _characteristicPropertiesSubscriptions = {};
 
   @override
-  Future<void> setNotifiable(String deviceId, String service,
-      String characteristic, BleInputProperty bleInputProperty) async {
+  Future<void> setNotifiable(String deviceId, XString service,
+      XString characteristic, BleInputProperty bleInputProperty) async {
+    service = ensureX(service);
+    characteristic = ensureX(characteristic);
     var c = _getCharacteristic(deviceId, service, characteristic);
 
     if (bleInputProperty != BleInputProperty.disabled) {
@@ -185,35 +256,39 @@ class QuickBlueLinux extends QuickBluePlatform {
           _log(
               'onCharacteristicPropertiesChanged $characteristic, ${hex.encode(c.value)}');
           onValueChanged?.call(
-              deviceId, characteristic, Uint8List.fromList(c.value));
+              deviceId, service, characteristic, Uint8List.fromList(c.value));
         }
       }
 
-      _characteristicPropertiesSubscriptions[characteristic] ??=
+      _characteristicPropertiesSubscriptions["$service*$characteristic"] ??=
           c.propertiesChanged.listen(onPropertiesChanged);
     } else {
       c.stopNotify(); //TODO This is async.  Should it be awaited, or should it have error handlers attached?
-      _characteristicPropertiesSubscriptions.remove(characteristic)?.cancel(); //TODO This is async.  Should it be awaited, or should it have error handlers attached?
+      _characteristicPropertiesSubscriptions.remove("$service*$characteristic")?.cancel(); //TODO This is async.  Should it be awaited, or should it have error handlers attached?
     }
   }
 
   @override
   Future<void> readValue(
-      String deviceId, String service, String characteristic) async {
+      String deviceId, XString service, XString characteristic) async {
+    service = ensureX(service);
+    characteristic = ensureX(characteristic);
     var c = _getCharacteristic(deviceId, service, characteristic);
 
     var data = await c.readValue();
-    _log('readValue $characteristic, ${hex.encode(data)}');
-    onValueChanged?.call(deviceId, characteristic, Uint8List.fromList(data));
+    _log('readValue $service $characteristic, ${hex.encode(data)}');
+    onValueChanged?.call(deviceId, service, characteristic, Uint8List.fromList(data));
   }
 
   @override
   Future<void> writeValue(
       String deviceId,
-      String service,
-      String characteristic,
+      XString service,
+      XString characteristic,
       Uint8List value,
       BleOutputProperty bleOutputProperty) async {
+    service = ensureX(service);
+    characteristic = ensureX(characteristic);
     var c = _getCharacteristic(deviceId, service, characteristic);
 
     try {
@@ -224,12 +299,12 @@ class QuickBlueLinux extends QuickBluePlatform {
       }
       //CHECK I'm not sure if writeValue waits for write confirmation before returning, so I don't know if this is right.  I also don't know if withoutResponse should trigger this or not.
       // Note: testing tentatively suggests that it does wait.
-      onWroteCharacteristic?.call(deviceId, characteristic, value, true);
+      onWroteCharacteristic?.call(deviceId, service, characteristic, value, true);
     } catch (e, s) {
-      onWroteCharacteristic?.call(deviceId, characteristic, value, false);
+      onWroteCharacteristic?.call(deviceId, service, characteristic, value, false);
       rethrow;
     }
-    _log('writeValue $characteristic, ${hex.encode(value)}');
+    _log('writeValue $service $characteristic, ${hex.encode(value)}');
   }
 
   @override
