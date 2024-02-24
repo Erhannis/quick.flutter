@@ -7,6 +7,9 @@ export 'src/models.dart';
 export 'src/quick_blue_linux.dart';
 export 'src/quick_blue_platform_interface.dart';
 
+//DUMMY Remember short uuids
+//DUMMY UUID comparison funcs, or maybe a separate strip func?  What makes XString equal?  "potentiallyEqual" vs "definitelyEqual"?
+
 class QuickBlue {
   static QuickBluePlatform _platform = QuickBluePlatform.instance;
 
@@ -24,7 +27,7 @@ class QuickBlue {
   static Stream<AvailabilityState> get availabilityChangeStream =>
       _platform.availabilityChangeStream.map(AvailabilityState.parse);
 
-  static Future<void> startScan({List<String>? serviceUUIDs}) =>
+  static Future<void> startScan({List<String>? serviceUUIDs}) => //DUMMY Note, not XString
       _platform.startScan(serviceUUIDs);
 
   static Future<void> stopScan() => _platform.stopScan();
@@ -51,8 +54,8 @@ class QuickBlue {
     _platform.onServiceDiscovered = onServiceDiscovered;
   }
 
-  static Future<void> setNotifiable(String deviceId, String service,
-      String characteristic, BleInputProperty bleInputProperty) {
+  static Future<void> setNotifiable(String deviceId, XString service,
+      XString characteristic, BleInputProperty bleInputProperty) {
     return _platform.setNotifiable(
         deviceId, service, characteristic, bleInputProperty);
   }
@@ -66,14 +69,14 @@ class QuickBlue {
   }
 
   static Future<void> readValue(
-      String deviceId, String service, String characteristic) {
+      String deviceId, XString service, XString characteristic) {
     return _platform.readValue(deviceId, service, characteristic);
   }
 
   static Future<void> writeValue(
       String deviceId,
-      String service,
-      String characteristic,
+      XString service,
+      XString characteristic,
       Uint8List value,
       BleOutputProperty bleOutputProperty) {
     return _platform.writeValue(

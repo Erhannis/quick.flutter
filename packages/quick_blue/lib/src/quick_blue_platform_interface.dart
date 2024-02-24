@@ -13,18 +13,21 @@ export 'models.dart';
 
 typedef QuickLogger = Logger;
 
+typedef XString = String; //DUMMY
+
 typedef OnConnectionChanged = void Function(
     String deviceId, BlueConnectionState state);
 
 typedef OnServiceDiscovered = void Function(
-    String deviceId, String serviceId, List<String> characteristicIds);
+    String deviceId, XString serviceId, List<XString> characteristicIds);
 
 typedef OnValueChanged = void Function(
-    String deviceId, String characteristicId, Uint8List value);
+    String deviceId, XString serviceId, XString characteristicId, Uint8List value);
 
 typedef OnWroteCharacteristic = void Function(
-    String deviceId, String characteristicId, Uint8List? value, bool success);
+    String deviceId, XString serviceId, XString characteristicId, Uint8List? value, bool success);
 
+//DUMMY Mention XString in docs, mention sanitization funcs
 abstract class QuickBluePlatform extends PlatformInterface {
   QuickBluePlatform() : super(token: _token);
 
@@ -45,7 +48,7 @@ abstract class QuickBluePlatform extends PlatformInterface {
 
   Stream<int> get availabilityChangeStream;
 
-  Future<void> startScan(List<String>? serviceUUIDs);
+  Future<void> startScan(List<String>? serviceUUIDs); //DUMMY Note that these are not XString
 
   Future<void> stopScan();
 
@@ -61,20 +64,20 @@ abstract class QuickBluePlatform extends PlatformInterface {
 
   OnServiceDiscovered? onServiceDiscovered;
 
-  Future<void> setNotifiable(String deviceId, String service,
-      String characteristic, BleInputProperty bleInputProperty);
+  Future<void> setNotifiable(String deviceId, XString service,
+      XString characteristic, BleInputProperty bleInputProperty);
 
   OnValueChanged? onValueChanged;
 
   OnWroteCharacteristic? onWroteCharacteristic;
 
   Future<void> readValue(
-      String deviceId, String service, String characteristic);
+      String deviceId, XString service, XString characteristic);
 
   Future<void> writeValue(
       String deviceId,
-      String service,
-      String characteristic,
+      XString service,
+      XString characteristic,
       Uint8List value,
       BleOutputProperty bleOutputProperty);
 

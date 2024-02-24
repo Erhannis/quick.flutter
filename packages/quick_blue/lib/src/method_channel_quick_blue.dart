@@ -41,7 +41,7 @@ class MethodChannelQuickBlue extends QuickBluePlatform {
   Stream<int> get availabilityChangeStream => _availabilityChangeStream;
 
   @override
-  Future<void> startScan(List<String>? serviceUUIDs) async {
+  Future<void> startScan(List<String>? serviceUUIDs) async { //DUMMY Note not XString
     await _method.invokeMethod('startScan', {
       'serviceUUIDs': serviceUUIDs,
     });
@@ -91,25 +91,27 @@ class MethodChannelQuickBlue extends QuickBluePlatform {
     } else if (message['ServiceState'] != null) {
       if (message['ServiceState'] == 'discovered') {
         String deviceId = message['deviceId'];
-        String service = message['service'];
-        List<String> characteristics = ((message['characteristics'] ?? []) as List).cast();
+        XString service = message['service'];
+        List<XString> characteristics = ((message['characteristics'] ?? []) as List).cast();
         onServiceDiscovered?.call(deviceId, service, characteristics);
       }
-    } else if (message['characteristicValue'] != null) {
+    } else if (message['characteristicValue'] != null) { //DUMMY Propagate addition of service
       String deviceId = message['deviceId'];
       var characteristicValue = message['characteristicValue'];
-      String characteristic = characteristicValue['characteristic'];
+      XString service = characteristicValue['service'];
+      XString characteristic = characteristicValue['characteristic'];
       Uint8List value = Uint8List.fromList(
           characteristicValue['value']); // In case of _Uint8ArrayView
-      onValueChanged?.call(deviceId, characteristic, value);
-    } else if (message['wroteCharacteristicValue'] != null) {
+      onValueChanged?.call(deviceId, service, characteristic, value);
+    } else if (message['wroteCharacteristicValue'] != null) { //DUMMY Propagate addition of service
       String deviceId = message['deviceId'];
       var characteristicValue = message['wroteCharacteristicValue'];
-      String characteristic = characteristicValue['characteristic'];
+      XString service = characteristicValue['service'];
+      XString characteristic = characteristicValue['characteristic'];
       var value0 = characteristicValue['value'];
       Uint8List? value = value0 == null ? null : Uint8List.fromList(value0); // In case of _Uint8ArrayView
       bool success = characteristicValue['success'];
-      onWroteCharacteristic?.call(deviceId, characteristic, value, success);
+      onWroteCharacteristic?.call(deviceId, service, characteristic, value, success);
     } else if (message['mtuConfig'] != null) {
       _mtuConfigController.add(message['mtuConfig']);
     } else {
@@ -118,8 +120,8 @@ class MethodChannelQuickBlue extends QuickBluePlatform {
   }
 
   @override
-  Future<void> setNotifiable(String deviceId, String service,
-      String characteristic, BleInputProperty bleInputProperty) async {
+  Future<void> setNotifiable(String deviceId, XString service,
+      XString characteristic, BleInputProperty bleInputProperty) async {
     await _method.invokeMethod('setNotifiable', {
       'deviceId': deviceId,
       'service': service,
@@ -130,7 +132,7 @@ class MethodChannelQuickBlue extends QuickBluePlatform {
 
   @override
   Future<void> readValue(
-      String deviceId, String service, String characteristic) async {
+      String deviceId, XString service, XString characteristic) async {
     await _method.invokeMethod('readValue', {
       'deviceId': deviceId,
       'service': service,
@@ -141,8 +143,8 @@ class MethodChannelQuickBlue extends QuickBluePlatform {
   @override
   Future<void> writeValue(
     String deviceId,
-    String service,
-    String characteristic,
+    XString service,
+    XString characteristic,
     Uint8List value,
     BleOutputProperty bleOutputProperty,
   ) async {
