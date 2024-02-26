@@ -8,6 +8,9 @@ import 'package:logging/logging.dart';
 
 import 'quick_blue_platform_interface.dart';
 
+//CHECK Something's weird on Linux.  I remember this DID WORK FINE about the very first time I tried it, but now (even when I roll back) it's being glitchy.
+//  It seems like there's maybe something weird about 1. running things unawaited, 2. not leaving a delay between different calls, 3. scanning more than once (it never marks the cessation of scanning?)
+
 class QuickBlueLinux extends QuickBluePlatform {
   // For example/.dart_tool/flutter_build/generated_main.dart
   static registerWith() {
