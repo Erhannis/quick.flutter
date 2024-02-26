@@ -146,14 +146,18 @@ class QuickBlueLinux extends QuickBluePlatform {
     Map<String, int> ss = {};
     for (var service in device.gattServices) {
       _log("Service ${service.uuid}");
-      var sxi = ss["${service.uuid}"] ??= 0;
+      ss["${service.uuid}"] ??= -1;
+      ss["${service.uuid}"] = ss["${service.uuid}"]! + 1;
+      var sxi = ss["${service.uuid}"]!;
       var sxs = s2x("${service.uuid}", sxi);
 
       Map<String, int> cs = {};
       List<XString> characteristics = [];
       for (var characteristic in service.characteristics) {
         _log("    Characteristic ${characteristic.uuid}");
-        var cxi = cs["${characteristic.uuid}"] ??= 0;
+        cs["${characteristic.uuid}"] ??= -1;
+        cs["${characteristic.uuid}"] = cs["${characteristic.uuid}"]! + 1;
+        var cxi = cs["${characteristic.uuid}"]!;
         characteristics.add(s2x("${characteristic.uuid}", cxi));
       }
 
@@ -206,7 +210,9 @@ class QuickBlueLinux extends QuickBluePlatform {
     {
       Map<String, int> ss = {};
       for (var x in device.gattServices) {
-        var sxi = ss["${x.uuid}"] ??= 0;
+        ss["${x.uuid}"] ??= -1;
+        ss["${x.uuid}"] = ss["${x.uuid}"]! + 1;
+        var sxi = ss["${x.uuid}"]!;
         var sxs = s2x("${x.uuid}", sxi);
 
         if (service == sxs) {
@@ -222,7 +228,9 @@ class QuickBlueLinux extends QuickBluePlatform {
       // I'm assuming they're in a fixed order, which seems reasonable.
       Map<String, int> cs = {};
       for (var x in s.characteristics) {
-        var cxi = cs["${x.uuid}"] ??= 0;
+        cs["${x.uuid}"] ??= -1;
+        cs["${x.uuid}"] = cs["${x.uuid}"]! + 1;
+        var cxi = cs["${x.uuid}"]!;
         var cxs = s2x("${x.uuid}", cxi);
 
         if (characteristic == cxs) {
