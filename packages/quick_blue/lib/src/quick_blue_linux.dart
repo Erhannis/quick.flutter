@@ -182,15 +182,16 @@ class QuickBlueLinux extends QuickBluePlatform {
     var i = xs.indexOf(":");
     if (i == -1) {
       return 0; //DUMMY //CHECK Not sure about this one
+    } else {
+      return int.tryParse(xs.substring(i + 1));
     }
-    return int.tryParse(xs.substring(i+1));
   }
 
   XString s2x(String s, [int i = 0]) {
     return "$s:$i";
   }
 
-  XString ensureX(String s) {
+  XString ensureX(String s) { //DUMMY Capitalization, here and elsewhere?  I mean, I guess it wasn't doing it BEFORE....
     var i = s.indexOf(":");
     if (i == -1) {
       return "$s:0";

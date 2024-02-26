@@ -14,7 +14,6 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.ParcelUuid
-import android.util.Log
 import androidx.annotation.NonNull
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.plugin.common.*
@@ -24,7 +23,10 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.*
 
+
 private const val TAG = "QuickBluePlugin"
+
+typealias XString = String
 
 /** QuickBluePlugin */
 @SuppressLint("MissingPermission")
@@ -79,6 +81,115 @@ class QuickBluePlugin: FlutterPlugin, MethodCallHandler, EventChannel.StreamHand
 
   fun trace() = Arrays.toString(Throwable().stackTrace)
 
+  fun x2ss(@NonNull xs: XString): String {
+    val i = xs.indexOf(":")
+    if (i == -1) {
+      return xs
+    } else {
+      return xs.substring(0, i)
+    }
+  }
+
+  fun x2si(@NonNull xs: XString): Int? {
+    val i = xs.indexOf(":")
+    if (i == -1) {
+      return 0 //DUMMY //CHECK Not sure about this one
+    } else {
+      try {
+        return Integer.parseInt(xs.substring(i + 1))
+      } catch (e: Exception) {
+        return null
+      }
+    }
+  }
+
+  fun s2x(s: String, i: Int = 0): XString {
+    return "$s:$i"
+  }
+
+  fun ensureX(s: String): XString {
+    val i = s.indexOf(":")
+    return if (i == -1) {
+      "$s:0"
+    } else {
+      s
+    }
+  }
+
+  fun x2service(@NonNull services: List<BluetoothGattService>, @NonNull service: XString): BluetoothGattService? {
+    var service = ensureX(service)
+    val ss: MutableMap<String, Int> = mutableMapOf()
+    for (x in services) {
+      val k = "${x.uuid}"
+      if (!ss.containsKey(k)) {
+        ss[k] = -1
+      }
+      ss[k] = (ss[k]!!) + 1
+      var sxi = ss[k]!!
+      var sxs = s2x(k, sxi)
+
+      if (sxs.contentEquals(service)) {
+        return x
+      }
+    }
+    return null
+  }
+
+  fun x2characteristic(@NonNull characteristics: List<BluetoothGattCharacteristic>, @NonNull characteristic: XString): BluetoothGattCharacteristic? {
+    var characteristic = ensureX(characteristic)
+    val cs: MutableMap<String, Int> = mutableMapOf()
+    for (x in characteristics) {
+      val k = "${x.uuid}"
+      if (!cs.containsKey(k)) {
+        cs[k] = -1
+      }
+      cs[k] = (cs[k]!!) + 1
+      var cxi = cs[k]!!
+      var cxs = s2x(k, cxi)
+
+      if (cxs.contentEquals(characteristic)) {
+        return x
+      }
+    }
+    return null
+  }
+
+  fun service2x(@NonNull gatt: BluetoothGatt, @NonNull service: BluetoothGattService): XString? {
+    val ss: MutableMap<String, Int> = mutableMapOf()
+    for (x in gatt.services) {
+      val k = "${x.uuid}"
+      if (!ss.containsKey(k)) {
+        ss[k] = -1
+      }
+      ss[k] = (ss[k]!!) + 1
+      var sxi = ss[k]!!
+      var sxs = s2x(k, sxi)
+
+      if (x.instanceId == service.instanceId) {
+        return sxs
+      }
+    }
+    return null
+  }
+
+  fun characteristic2x(@NonNull characteristic: BluetoothGattCharacteristic): XString? {
+    val cs: MutableMap<String, Int> = mutableMapOf()
+    for (x in characteristic.service.characteristics) {
+      val k = "${x.uuid}"
+      if (!cs.containsKey(k)) {
+        cs[k] = -1
+      }
+      cs[k] = (cs[k]!!) + 1
+      var cxi = cs[k]!!
+      var cxs = s2x(k, cxi)
+
+      if (x.instanceId == characteristic.instanceId) {
+        return cxs
+      }
+    }
+    return null
+  }
+
   override fun onMethodCall(@NonNull call: MethodCall, @NonNull result: Result) {
     try {
       when (call.method) {
@@ -86,7 +197,7 @@ class QuickBluePlugin: FlutterPlugin, MethodCallHandler, EventChannel.StreamHand
           result.success(bluetoothManager.adapter.isEnabled)
         }
         "startScan" -> {
-          val serviceUUIDs = call.argument<ArrayList<String>>("serviceUUIDs")
+          val serviceUUIDs = call.argument<ArrayList<String>>("serviceUUIDs") //DUMMY Note String not XString
           if (serviceUUIDs != null && serviceUUIDs.size > 0) {
             val filters: ArrayList<ScanFilter> = ArrayList()
             for (serviceUUID in serviceUUIDs) {
@@ -143,25 +254,35 @@ class QuickBluePlugin: FlutterPlugin, MethodCallHandler, EventChannel.StreamHand
         }
         "setNotifiable" -> {
           val deviceId = call.argument<String>("deviceId")!!
-          val service = call.argument<String>("service")!!
-          val characteristic = call.argument<String>("characteristic")!!
+          var service = call.argument<XString>("service")!!
+          var characteristic = call.argument<XString>("characteristic")!!
           val bleInputProperty = call.argument<String>("bleInputProperty")!!
+
+          service = ensureX(service)
+          characteristic = ensureX(characteristic)
+
           val gatt = knownGatts.find { it.device.address == deviceId }
                   ?: return result.error("IllegalArgument", "Unknown deviceId: $deviceId", trace())
-          val s = gatt.getService(UUID.fromString(service))
+          val s = x2service(gatt.services, service)
                   ?: return result.error("IllegalArgument", "Unknown service: $service", trace())
-          val c = s.getCharacteristic(UUID.fromString(characteristic))
+          val c = x2characteristic(s.characteristics, characteristic)
                   ?: return result.error("IllegalArgument", "Unknown characteristic: $characteristic", trace())
           gatt.setNotifiable(c, bleInputProperty)
           result.success(null)
         }
         "readValue" -> {
           val deviceId = call.argument<String>("deviceId")!!
-          val service = call.argument<String>("service")!!
-          val characteristic = call.argument<String>("characteristic")!!
+          var service = call.argument<String>("service")!!
+          var characteristic = call.argument<String>("characteristic")!!
+
+          service = ensureX(service)
+          characteristic = ensureX(characteristic)
+
           val gatt = knownGatts.find { it.device.address == deviceId }
                   ?: return result.error("IllegalArgument", "Unknown deviceId: $deviceId", trace())
-          val c = gatt.getCharacteristic(service, characteristic)
+          val s = x2service(gatt.services, service)
+                  ?: return result.error("IllegalArgument", "Unknown service: $service", trace())
+          val c = x2characteristic(s.characteristics, characteristic)
                   ?: return result.error("IllegalArgument", "Unknown characteristic: $characteristic", trace())
           if (gatt.readCharacteristic(c))
             result.success(null)
@@ -170,12 +291,18 @@ class QuickBluePlugin: FlutterPlugin, MethodCallHandler, EventChannel.StreamHand
         }
         "writeValue" -> {
           val deviceId = call.argument<String>("deviceId")!!
-          val service = call.argument<String>("service")!!
-          val characteristic = call.argument<String>("characteristic")!!
+          var service = call.argument<String>("service")!!
+          var characteristic = call.argument<String>("characteristic")!!
           val value = call.argument<ByteArray>("value")!!
+
+          service = ensureX(service)
+          characteristic = ensureX(characteristic)
+
           val gatt = knownGatts.find { it.device.address == deviceId }
                   ?: return result.error("IllegalArgument", "Unknown deviceId: $deviceId", trace())
-          val c = gatt.getCharacteristic(service, characteristic)
+          val s = x2service(gatt.services, service)
+                  ?: return result.error("IllegalArgument", "Unknown service: $service", trace())
+          val c = x2characteristic(s.characteristics, characteristic)
                   ?: return result.error("IllegalArgument", "Unknown characteristic: $characteristic", trace())
           c.value = value
           if (gatt.writeCharacteristic(c)) {
@@ -301,6 +428,7 @@ class QuickBluePlugin: FlutterPlugin, MethodCallHandler, EventChannel.StreamHand
       //Log.v(TAG, "onServicesDiscovered ${gatt.device.address} $status")
       if (status != BluetoothGatt.GATT_SUCCESS) return
 
+      val ss: MutableMap<String, Int> = mutableMapOf()
       gatt.services?.forEach { service ->
         //Log.v(TAG, "Service " + service.uuid)
         service.characteristics.forEach { characteristic ->
@@ -310,11 +438,34 @@ class QuickBluePlugin: FlutterPlugin, MethodCallHandler, EventChannel.StreamHand
           }
         }
 
+        val k = "${service.uuid}"
+        if (!ss.containsKey(k)) {
+          ss[k] = -1
+        }
+        ss[k] = (ss[k]!!) + 1
+        var sxi = ss[k]!!
+        var sxs = s2x(k, sxi)
+
+        var characteristics: MutableList<XString> = mutableListOf()
+
+        val cs: MutableMap<String, Int> = mutableMapOf()
+        for (x in service.characteristics) {
+          val k = "${x.uuid}"
+          if (!cs.containsKey(k)) {
+            cs[k] = -1
+          }
+          cs[k] = (cs[k]!!) + 1
+          var cxi = cs[k]!!
+          var cxs = s2x(k, cxi)
+
+          characteristics.add(cxs)
+        }
+
         sendMessage(messageConnector, mapOf(
           "deviceId" to gatt.device.address,
           "ServiceState" to "discovered",
-          "service" to service.uuid.toString(),
-          "characteristics" to service.characteristics.map { it.uuid.toString() }
+          "service" to sxs,
+          "characteristics" to characteristics
         ))
       }
     }
@@ -333,10 +484,15 @@ class QuickBluePlugin: FlutterPlugin, MethodCallHandler, EventChannel.StreamHand
 
     override fun onCharacteristicRead(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, status: Int) {
       //Log.v(TAG, "onCharacteristicRead ${characteristic.uuid}, ${characteristic.value.contentToString()}")
+
+      val s = service2x(gatt, characteristic.service)
+      val c = characteristic2x(characteristic)
+
       sendMessage(messageConnector, mapOf(
         "deviceId" to gatt.device.address,
         "characteristicValue" to mapOf(
-          "characteristic" to characteristic.uuid.toString(),
+          "service" to s,
+          "characteristic" to c,
           "value" to characteristic.value
         )
       ))
@@ -344,10 +500,15 @@ class QuickBluePlugin: FlutterPlugin, MethodCallHandler, EventChannel.StreamHand
 
     override fun onCharacteristicWrite(gatt: BluetoothGatt?, characteristic: BluetoothGattCharacteristic, status: Int) {
       //Log.v(TAG, "onCharacteristicWrite ${characteristic.uuid}, ${characteristic.value.contentToString()} $status")
+
+      val s = service2x(gatt!!, characteristic.service) //DUMMY Why would gatt be null?  Do we need to worry?
+      val c = characteristic2x(characteristic)
+
       sendMessage(messageConnector, mapOf(
               "deviceId" to gatt!!.device.address,
               "wroteCharacteristicValue" to mapOf(
-                      "characteristic" to characteristic.uuid.toString(),
+                      "service" to s,
+                      "characteristic" to c,
                       "value" to characteristic.value,
                       "success" to (status == BluetoothGatt.GATT_SUCCESS)
               )
@@ -356,10 +517,15 @@ class QuickBluePlugin: FlutterPlugin, MethodCallHandler, EventChannel.StreamHand
 
     override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
       //Log.v(TAG, "onCharacteristicChanged ${characteristic.uuid}, ${characteristic.value.contentToString()}")
+
+      val s = service2x(gatt, characteristic.service) //DUMMY Why would gatt be null?  Do we need to worry?
+      val c = characteristic2x(characteristic)
+
       sendMessage(messageConnector, mapOf(
         "deviceId" to gatt.device.address,
         "characteristicValue" to mapOf(
-          "characteristic" to characteristic.uuid.toString(),
+          "service" to s,
+          "characteristic" to c,
           "value" to characteristic.value
         )
       ))
@@ -377,9 +543,6 @@ val ScanResult.manufacturerDataHead: ByteArray?
 
 fun Short.toByteArray(byteOrder: ByteOrder = ByteOrder.LITTLE_ENDIAN): ByteArray =
         ByteBuffer.allocate(2 /*Short.SIZE_BYTES*/).order(byteOrder).putShort(this).array()
-
-fun BluetoothGatt.getCharacteristic(service: String, characteristic: String): BluetoothGattCharacteristic? =
-        getService(UUID.fromString(service))?.getCharacteristic(UUID.fromString(characteristic))
 
 private val DESC__CLIENT_CHAR_CONFIGURATION = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
 
