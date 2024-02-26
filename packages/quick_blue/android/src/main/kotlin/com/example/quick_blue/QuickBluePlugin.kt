@@ -15,6 +15,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.ParcelUuid
 import androidx.annotation.NonNull
+import io.flutter.Log
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.plugin.common.*
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
@@ -84,9 +85,9 @@ class QuickBluePlugin: FlutterPlugin, MethodCallHandler, EventChannel.StreamHand
   fun x2ss(@NonNull xs: XString): String {
     val i = xs.indexOf(":")
     if (i == -1) {
-      return xs
+      return xs.uppercase()
     } else {
-      return xs.substring(0, i)
+      return xs.substring(0, i).uppercase()
     }
   }
 
@@ -104,10 +105,12 @@ class QuickBluePlugin: FlutterPlugin, MethodCallHandler, EventChannel.StreamHand
   }
 
   fun s2x(s: String, i: Int = 0): XString {
+    val s = s.uppercase() //DUMMY Hmmmmmm, I'm not sure about this, could conflict with native uuids
     return "$s:$i"
   }
 
   fun ensureX(s: String): XString {
+    val s = s.uppercase() //DUMMY Hmmmmmm, I'm not sure about this, could conflict with native uuids
     val i = s.indexOf(":")
     return if (i == -1) {
       "$s:0"
@@ -129,8 +132,10 @@ class QuickBluePlugin: FlutterPlugin, MethodCallHandler, EventChannel.StreamHand
       var sxs = s2x(k, sxi)
 
       if (sxs.contentEquals(service)) {
+        Log.e(TAG, "x2serv yes $sxs $service")
         return x
       }
+      Log.e(TAG, "x2serv no $sxs $service")
     }
     return null
   }
@@ -148,8 +153,10 @@ class QuickBluePlugin: FlutterPlugin, MethodCallHandler, EventChannel.StreamHand
       var cxs = s2x(k, cxi)
 
       if (cxs.contentEquals(characteristic)) {
+        Log.e(TAG, "x2char yes $cxs $characteristic")
         return x
       }
+      Log.e(TAG, "x2char no $cxs $characteristic")
     }
     return null
   }
@@ -258,6 +265,8 @@ class QuickBluePlugin: FlutterPlugin, MethodCallHandler, EventChannel.StreamHand
           var characteristic = call.argument<XString>("characteristic")!!
           val bleInputProperty = call.argument<String>("bleInputProperty")!!
 
+          Log.e(TAG, "setNotifiable $service $characteristic")
+
           service = ensureX(service)
           characteristic = ensureX(characteristic)
 
@@ -272,8 +281,8 @@ class QuickBluePlugin: FlutterPlugin, MethodCallHandler, EventChannel.StreamHand
         }
         "readValue" -> {
           val deviceId = call.argument<String>("deviceId")!!
-          var service = call.argument<String>("service")!!
-          var characteristic = call.argument<String>("characteristic")!!
+          var service = call.argument<XString>("service")!!
+          var characteristic = call.argument<XString>("characteristic")!!
 
           service = ensureX(service)
           characteristic = ensureX(characteristic)
@@ -291,8 +300,8 @@ class QuickBluePlugin: FlutterPlugin, MethodCallHandler, EventChannel.StreamHand
         }
         "writeValue" -> {
           val deviceId = call.argument<String>("deviceId")!!
-          var service = call.argument<String>("service")!!
-          var characteristic = call.argument<String>("characteristic")!!
+          var service = call.argument<XString>("service")!!
+          var characteristic = call.argument<XString>("characteristic")!!
           val value = call.argument<ByteArray>("value")!!
 
           service = ensureX(service)
@@ -516,9 +525,9 @@ class QuickBluePlugin: FlutterPlugin, MethodCallHandler, EventChannel.StreamHand
     }
 
     override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
-      //Log.v(TAG, "onCharacteristicChanged ${characteristic.uuid}, ${characteristic.value.contentToString()}")
+      Log.e(TAG, "onCharacteristicChanged ${characteristic.uuid}/${characteristic.instanceId}, ${characteristic.value.contentToString()}")
 
-      val s = service2x(gatt, characteristic.service) //DUMMY Why would gatt be null?  Do we need to worry?
+      val s = service2x(gatt, characteristic.service)
       val c = characteristic2x(characteristic)
 
       sendMessage(messageConnector, mapOf(
@@ -547,6 +556,8 @@ fun Short.toByteArray(byteOrder: ByteOrder = ByteOrder.LITTLE_ENDIAN): ByteArray
 private val DESC__CLIENT_CHAR_CONFIGURATION = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
 
 fun BluetoothGatt.setNotifiable(gattCharacteristic: BluetoothGattCharacteristic, bleInputProperty: String) {
+  Log.e(TAG, "setNotifiable ${gattCharacteristic.uuid}/${gattCharacteristic.instanceId}")
+
   val descriptor = gattCharacteristic.getDescriptor(DESC__CLIENT_CHAR_CONFIGURATION)
   val (value, enable) = when (bleInputProperty) {
     "notification" -> BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE to true
@@ -556,6 +567,9 @@ fun BluetoothGatt.setNotifiable(gattCharacteristic: BluetoothGattCharacteristic,
   if (setCharacteristicNotification(gattCharacteristic, enable) && descriptor != null) {
     descriptor.value = value
     writeDescriptor(descriptor)
+    Log.e(TAG, "setNotifiable t")
+  } else {
+    Log.e(TAG, "setNotifiable f")
   }
 }
 const val baseBluetoothUuidPostfix = "0000-1000-8000-00805F9B34FB"
