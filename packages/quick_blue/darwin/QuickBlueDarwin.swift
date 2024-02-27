@@ -418,16 +418,16 @@ extension QuickBlueDarwin: CBPeripheralDelegate {
         //     print("peripheral:didDiscoverCharacteristicsForService (\(service.uuid.uuidStr), \(characteristic.uuid.uuidStr)")
         // }
         
-         for characteristic in service.characteristics! {
-             print("Discovered characteristic \(characteristic.uuid)")
-        
-             peripheral.discoverDescriptors(for: characteristic)
-             
-//             if characteristic.properties.contains(.notify) {
-//                 print("Subscribing to \(characteristic.uuid)")
-//                 peripheral.setNotifyValue(true, for: characteristic)
-//             }
-         }
+//         for characteristic in service.characteristics! {
+//             print("Discovered characteristic \(characteristic.uuid)")
+//        
+//             peripheral.discoverDescriptors(for: characteristic)
+//             
+////             if characteristic.properties.contains(.notify) {
+////                 print("Subscribing to \(characteristic.uuid)")
+////                 peripheral.setNotifyValue(true, for: characteristic)
+////             }
+//         }
 
         self.messageConnector.sendMessage([
             "deviceId": peripheral.uuid.uuidString,
@@ -437,26 +437,26 @@ extension QuickBlueDarwin: CBPeripheralDelegate {
         ])
     }
     
-    public func peripheral(_ peripheral: CBPeripheral, didDiscoverDescriptorsFor characteristic: CBCharacteristic, error: Error?) {
-        print("Discovered descriptors for characteristic \(characteristic.uuid)")
-   
-        for descriptor in characteristic.descriptors ?? [] {
-            peripheral.readValue(for: descriptor)
-        }
-    }
-    
-    public func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor descriptor: CBDescriptor, error: Error?) {
-        print("didUpdateValueFor descriptor cu:\(descriptor.characteristic?.uuid) d:\(descriptor) du:\(descriptor.uuid) dv:\(descriptor.value) dvt:\(type(of: descriptor.value ?? ""))")
-        if let n = descriptor.value as? NSNumber {
-            print("dva:\(n)")
-        } else if let nsData = descriptor.value as? NSData {
-            let data = Data(referencing: nsData)
-            let str = String(data: data, encoding: String.Encoding.utf8)
-            print("dva:\(str)")
-        } else {
-            print("dva dunno")
-        }
-    }
+//    public func peripheral(_ peripheral: CBPeripheral, didDiscoverDescriptorsFor characteristic: CBCharacteristic, error: Error?) {
+//        print("Discovered descriptors for characteristic \(characteristic.uuid)")
+//   
+//        for descriptor in characteristic.descriptors ?? [] {
+//            peripheral.readValue(for: descriptor)
+//        }
+//    }
+//    
+//    public func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor descriptor: CBDescriptor, error: Error?) {
+//        print("didUpdateValueFor descriptor cu:\(descriptor.characteristic?.uuid) d:\(descriptor) du:\(descriptor.uuid) dv:\(descriptor.value) dvt:\(type(of: descriptor.value ?? ""))")
+//        if let n = descriptor.value as? NSNumber {
+//            print("dva:\(n)")
+//        } else if let nsData = descriptor.value as? NSData {
+//            let data = Data(referencing: nsData)
+//            let str = String(data: data, encoding: String.Encoding.utf8)
+//            print("dva:\(str)")
+//        } else {
+//            print("dva dunno")
+//        }
+//    }
 
     public func peripheral(_ peripheral: CBPeripheral, didWriteValueFor characteristic: CBCharacteristic, error: Error?) {
         let s = peripheral.service2x(service: characteristic.service!) //DUMMY Why would service be null?  Do we need to worry?
