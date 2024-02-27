@@ -52,7 +52,7 @@ func ensureX(_ s: String) -> XString {
     if let i {
         // There's a :
         // Split and check/fix short uuid
-        var suffix = String(s[i...])
+        let suffix = String(s[i...])
         s = String(s[..<i])
         if s.count < 10 { // Ditto
             s = "0000\(s)-\(GSS_SUFFIX)"
@@ -99,7 +99,7 @@ extension CBPeripheral {
             let sxs = s2x(k, sxi)
             
             if sxs == service {
-                print("x2serv yes \(sxs) \(service)")
+                // print("x2serv yes \(sxs) \(service)")
                 var characteristicsMap: [String: Int] = [:]
                 guard let characteristics = s.characteristics else { continue }
                 
@@ -110,13 +110,13 @@ extension CBPeripheral {
                     let cxs = s2x(ck, cxi)
                     
                     if cxs == characteristic {
-                        print("x2char yes \(cxs) \(characteristic)")
+                        // print("x2char yes \(cxs) \(characteristic)")
                         return c
                     }
-                    print("x2char no \(cxs) \(characteristic)")
+                    // print("x2char no \(cxs) \(characteristic)")
                 }
             } else {
-                print("x2serv no \(sxs) \(service)")
+                // print("x2serv no \(sxs) \(service)")
             }
         }
         return nil
@@ -162,10 +162,10 @@ extension CBPeripheral {
         let s = ensureX(service)
 
         guard let characteristic = getCharacteristic(c, of: s) else {
-            print("setNotifiable yes \(bleInputProperty != "disabled") \(s) \(c)")
+            // print("setNotifiable yes \(bleInputProperty != "disabled") \(s) \(c)")
             return
         }
-        print("setNotifiable yes \(bleInputProperty != "disabled") \(s) \(c)")
+        // print("setNotifiable yes \(bleInputProperty != "disabled") \(s) \(c)")
         setNotifyValue(bleInputProperty != "disabled", for: characteristic)
     }
 }
@@ -214,6 +214,13 @@ public class QuickBlueDarwin: NSObject, FlutterPlugin {
             result(nil)
         case "stopScan":
             manager.stopScan()
+            
+//            testbm = BLEManager()
+//            dispatch {
+//                Thread.sleep(forTimeInterval: Double(1000) / 1000.0)
+//                testbm!.startScanning()
+//            }
+            
             result(nil)
         case "connect":
             let arguments = call.arguments as! Dictionary<String, Any>
@@ -256,16 +263,16 @@ public class QuickBlueDarwin: NSObject, FlutterPlugin {
             characteristic = ensureX(characteristic)
             
             guard let peripheral = discoveredPeripherals[deviceId] else {
-                print("setNotifiable no 1 \(bleInputProperty != "disabled") \(service) \(characteristic)")
+                // print("setNotifiable no 1 \(bleInputProperty != "disabled") \(service) \(characteristic)")
                 result(FlutterError(code: "IllegalArgument", message: "Unknown deviceId:\(deviceId)", details: nil))
                 return
             }
             guard let c = peripheral.getCharacteristic(characteristic, of: service) else {
-                print("setNotifiable no 2 \(bleInputProperty != "disabled") \(service) \(characteristic)")
+                // print("setNotifiable no 2 \(bleInputProperty != "disabled") \(service) \(characteristic)")
                 result(FlutterError(code: "IllegalArgument", message: "Unknown service's:\(service) characteristic:\(characteristic)", details: nil))
                 return
             }
-            print("setNotifiable yes \(bleInputProperty != "disabled") \(service) \(characteristic)")
+            // print("setNotifiable yes \(bleInputProperty != "disabled") \(service) \(characteristic)")
             peripheral.setNotifyValue(bleInputProperty != "disabled", for: c)
             result(nil)
         case "readValue":
@@ -392,7 +399,7 @@ extension QuickBlueDarwin: FlutterStreamHandler {
 
 extension QuickBlueDarwin: CBPeripheralDelegate {
     public func peripheral(_ peripheral: CBPeripheral, didUpdateNotificationStateFor characteristic: CBCharacteristic, error: Error?) {
-        print("didUpdateNotificationStateFor \(characteristic) \(error)")
+        // print("didUpdateNotificationStateFor \(characteristic) \(error)")
     }
     
     public func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
@@ -410,12 +417,45 @@ extension QuickBlueDarwin: CBPeripheralDelegate {
         // for characteristic in service.characteristics! {
         //     print("peripheral:didDiscoverCharacteristicsForService (\(service.uuid.uuidStr), \(characteristic.uuid.uuidStr)")
         // }
+        
+         for characteristic in service.characteristics! {
+             print("Discovered characteristic \(characteristic.uuid)")
+        
+             peripheral.discoverDescriptors(for: characteristic)
+             
+//             if characteristic.properties.contains(.notify) {
+//                 print("Subscribing to \(characteristic.uuid)")
+//                 peripheral.setNotifyValue(true, for: characteristic)
+//             }
+         }
+
         self.messageConnector.sendMessage([
             "deviceId": peripheral.uuid.uuidString,
             "ServiceState": "discovered",
             "service": s as Any,
             "characteristics": cs
         ])
+    }
+    
+    public func peripheral(_ peripheral: CBPeripheral, didDiscoverDescriptorsFor characteristic: CBCharacteristic, error: Error?) {
+        print("Discovered descriptors for characteristic \(characteristic.uuid)")
+   
+        for descriptor in characteristic.descriptors ?? [] {
+            peripheral.readValue(for: descriptor)
+        }
+    }
+    
+    public func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor descriptor: CBDescriptor, error: Error?) {
+        print("didUpdateValueFor descriptor cu:\(descriptor.characteristic?.uuid) d:\(descriptor) du:\(descriptor.uuid) dv:\(descriptor.value) dvt:\(type(of: descriptor.value ?? ""))")
+        if let n = descriptor.value as? NSNumber {
+            print("dva:\(n)")
+        } else if let nsData = descriptor.value as? NSData {
+            let data = Data(referencing: nsData)
+            let str = String(data: data, encoding: String.Encoding.utf8)
+            print("dva:\(str)")
+        } else {
+            print("dva dunno")
+        }
     }
 
     public func peripheral(_ peripheral: CBPeripheral, didWriteValueFor characteristic: CBCharacteristic, error: Error?) {
@@ -439,12 +479,15 @@ extension QuickBlueDarwin: CBPeripheralDelegate {
         let c = peripheral.characteristic2x(characteristic: characteristic)
         // let data = characteristic.value as NSData?
         // print("peripheral:didUpdateValueForCharacteristic \(characteristic.uuid) \(String(describing: data)) error: \(String(describing: error))")
+        if let error {
+            print("peripheral:didUpdateValueForCharacteristic \(characteristic.uuid) \(String(describing: characteristic.value)) error: \(String(describing: error))")
+        }
         self.messageConnector.sendMessage([
             "deviceId": peripheral.uuid.uuidString,
             "characteristicValue": [
                 "service": s as Any,
                 "characteristic": c as Any,
-                "value": FlutterStandardTypedData(bytes: characteristic.value!)
+                "value": (characteristic.value == nil ? nil : FlutterStandardTypedData(bytes: characteristic.value!)) as Any
             ]
         ])
     }
