@@ -8,9 +8,66 @@ import Cocoa
 import FlutterMacOS
 #endif
 
+public typealias XString = String
+
 let GATT_HEADER_LENGTH = 3
 
 let GSS_SUFFIX = "0000-1000-8000-00805f9b34fb"
+
+// 6 funcs translated with ChatGPT
+func x2ss(xs: XString) -> String { //DUMMY ensureX(xs) ?
+    let i = xs.firstIndex(of: ":")
+    if i == nil {
+        return xs.lowercased()
+    } else {
+        if let range = i {
+            return String(xs[..<range]).lowercased()
+        }
+        return xs.lowercased() // Fallback, should not happen due to the if check above
+    }
+}
+
+func x2si(xs: XString) -> Int? { //DUMMY ensureX(xs) ?
+    let i = xs.firstIndex(of: ":")
+    if i == nil {
+        return 0 //DUMMY //CHECK Not sure about this one
+    } else {
+        if let range = i {
+            let startIndex = xs.index(after: range)
+            let substring = String(xs[startIndex...])
+            return Int(substring)
+        }
+        return nil // Should not happen, added for safety
+    }
+}
+
+func s2x(_ s: String, _ i: Int = 0) -> XString {
+    let s = s.lowercased() //DUMMY Hmmmmmm, I'm not sure about this, could conflict with native uuids
+    return ensureX("\(s):\(i)") // ensureX for the short-checking
+}
+
+func ensureX(_ s: String) -> XString {
+    var s = s.lowercased() //DUMMY Hmmmmmm, I'm not sure about this, could conflict with native uuids
+    let i = s.firstIndex(of: ":")
+    if let i {
+        // There's a :
+        // Split and check/fix short uuid
+        var suffix = String(s[i...])
+        s = String(s[..<i])
+        if s.count < 10 { // Ditto
+            s = "0000\(s)-\(GSS_SUFFIX)"
+        }
+        s = "\(s)\(suffix)"
+    } else {
+        // No :
+        // Check/fix short uuid
+        if s.count < 10 { // Too lazy to check the actual number
+            s = "0000\(s)-\(GSS_SUFFIX)"
+        }
+        s = "\(s):0"
+    }
+    return s
+}
 
 extension CBUUID {
     public var uuidStr: String {
@@ -28,20 +85,87 @@ extension CBPeripheral {
         }
     }
 
-    public func getCharacteristic(_ characteristic: String, of service: String) -> CBCharacteristic? {
-        let s = self.services?.first {
-            $0.uuid.uuidStr == service || "0000\($0.uuid.uuidStr)-\(GSS_SUFFIX)" == service
+    public func getCharacteristic(_ characteristic: XString, of service: XString) -> CBCharacteristic? {
+        let characteristic = ensureX(characteristic)
+        let service = ensureX(service)
+        var servicesMap: [String: Int] = [:]
+        
+        guard let services = self.services else { return nil }
+        
+        for s in services {
+            let k = "\(s.uuid.uuidString)"
+            servicesMap[k, default: -1] += 1
+            let sxi = servicesMap[k]!
+            let sxs = s2x(k, sxi)
+            
+            if sxs == service {
+                print("x2serv yes \(sxs) \(service)")
+                var characteristicsMap: [String: Int] = [:]
+                guard let characteristics = s.characteristics else { continue }
+                
+                for c in characteristics {
+                    let ck = "\(c.uuid.uuidString)"
+                    characteristicsMap[ck, default: -1] += 1
+                    let cxi = characteristicsMap[ck]!
+                    let cxs = s2x(ck, cxi)
+                    
+                    if cxs == characteristic {
+                        print("x2char yes \(cxs) \(characteristic)")
+                        return c
+                    }
+                    print("x2char no \(cxs) \(characteristic)")
+                }
+            } else {
+                print("x2serv no \(sxs) \(service)")
+            }
         }
-        let c = s?.characteristics?.first {
-            $0.uuid.uuidStr == characteristic || "0000\($0.uuid.uuidStr)-\(GSS_SUFFIX)" == characteristic
-        }
-        return c
+        return nil
     }
 
-    public func setNotifiable(_ bleInputProperty: String, for characteristic: String, of service: String) {
-        guard let characteristic = getCharacteristic(characteristic, of: service) else{
+    func service2x(service: CBService) -> XString? {
+        var ss: [String: Int] = [:]
+        guard let services = self.services else { return nil }
+        
+        for x in services {
+            let k = "\(x.uuid.uuidString)"
+            ss[k, default: -1] += 1
+            let sxi = ss[k]!
+            let sxs = s2x(k, sxi)
+            
+            if x === service { //DUMMY Not sure this is right
+                return sxs
+            }
+        }
+        return nil
+    }
+    
+    func characteristic2x(characteristic: CBCharacteristic) -> XString? {
+        guard let characteristics = characteristic.service?.characteristics else { return nil }
+        var cs: [String: Int] = [:]
+        
+        for x in characteristics {
+            let k = "\(x.uuid.uuidString)"
+            cs[k, default: -1] += 1
+            let cxi = cs[k]!
+            let cxs = s2x(k, cxi)
+            
+            if x === characteristic { //DUMMY Not sure this is right
+                return cxs
+            }
+        }
+        return nil
+    }
+
+    //THINK ...I don't think this is used?
+    public func setNotifiable(_ bleInputProperty: String, for characteristic: XString, of service: XString) {
+        let c = ensureX(characteristic)
+        let s = ensureX(service)
+
+        guard let characteristic = getCharacteristic(c, of: s) else {
+            print("setNotifiable yes \(bleInputProperty != "disabled") \(s) \(c)")
             return
         }
+        print("setNotifiable yes \(bleInputProperty != "disabled") \(s) \(c)")
         setNotifyValue(bleInputProperty != "disabled", for: characteristic)
     }
 }
@@ -78,7 +202,7 @@ public class QuickBlueDarwin: NSObject, FlutterPlugin {
             result(manager.state == .poweredOn)
         case "startScan":
             let arguments = call.arguments as! Dictionary<String, Any>
-            let serviceUUIDs = arguments["serviceUUIDs"] as? [String]
+            let serviceUUIDs = arguments["serviceUUIDs"] as? [String] //DUMMY String not XString
             if serviceUUIDs != nil && serviceUUIDs!.count > 0 {
                 let serviceCBUUID = serviceUUIDs!.map({ uuid in
                     CBUUID(string: uuid)
@@ -124,30 +248,41 @@ public class QuickBlueDarwin: NSObject, FlutterPlugin {
         case "setNotifiable":
             let arguments = call.arguments as! Dictionary<String, Any>
             let deviceId = arguments["deviceId"] as! String
-            let service = arguments["service"] as! String
-            let characteristic = arguments["characteristic"] as! String
+            var service = arguments["service"] as! String
+            var characteristic = arguments["characteristic"] as! String
             let bleInputProperty = arguments["bleInputProperty"] as! String
+            
+            service = ensureX(service)
+            characteristic = ensureX(characteristic)
+            
             guard let peripheral = discoveredPeripherals[deviceId] else {
+                print("setNotifiable no 1 \(bleInputProperty != "disabled") \(service) \(characteristic)")
                 result(FlutterError(code: "IllegalArgument", message: "Unknown deviceId:\(deviceId)", details: nil))
                 return
             }
             guard let c = peripheral.getCharacteristic(characteristic, of: service) else {
-                result(FlutterError(code: "IllegalArgument", message: "Unknown characteristic:\(characteristic)", details: nil))
+                print("setNotifiable no 2 \(bleInputProperty != "disabled") \(service) \(characteristic)")
+                result(FlutterError(code: "IllegalArgument", message: "Unknown service's:\(service) characteristic:\(characteristic)", details: nil))
                 return
             }
+            print("setNotifiable yes \(bleInputProperty != "disabled") \(service) \(characteristic)")
             peripheral.setNotifyValue(bleInputProperty != "disabled", for: c)
             result(nil)
         case "readValue":
             let arguments = call.arguments as! Dictionary<String, Any>
             let deviceId = arguments["deviceId"] as! String
-            let service = arguments["service"] as! String
-            let characteristic = arguments["characteristic"] as! String
+            var service = arguments["service"] as! String
+            var characteristic = arguments["characteristic"] as! String
+            
+            service = ensureX(service)
+            characteristic = ensureX(characteristic)
+
             guard let peripheral = discoveredPeripherals[deviceId] else {
                 result(FlutterError(code: "IllegalArgument", message: "Unknown deviceId:\(deviceId)", details: nil))
                 return
             }
             guard let c = peripheral.getCharacteristic(characteristic, of: service) else {
-                result(FlutterError(code: "IllegalArgument", message: "Unknown characteristic:\(characteristic)", details: nil))
+                result(FlutterError(code: "IllegalArgument", message: "Unknown service's:\(service) characteristic:\(characteristic)", details: nil))
                 return
             }
             peripheral.readValue(for: c)
@@ -155,17 +290,21 @@ public class QuickBlueDarwin: NSObject, FlutterPlugin {
         case "writeValue":
             let arguments = call.arguments as! Dictionary<String, Any>
             let deviceId = arguments["deviceId"] as! String
-            let service = arguments["service"] as! String
-            let characteristic = arguments["characteristic"] as! String
+            var service = arguments["service"] as! String
+            var characteristic = arguments["characteristic"] as! String
             let value = arguments["value"] as! FlutterStandardTypedData
             let bleOutputProperty = arguments["bleOutputProperty"] as! String
+
+            service = ensureX(service)
+            characteristic = ensureX(characteristic)
+
             guard let peripheral = discoveredPeripherals[deviceId] else {
                 result(FlutterError(code: "IllegalArgument", message: "Unknown deviceId:\(deviceId)", details: nil))
                 return
             }
             let type = bleOutputProperty == "withoutResponse" ? CBCharacteristicWriteType.withoutResponse : CBCharacteristicWriteType.withResponse
             guard let c = peripheral.getCharacteristic(characteristic, of: service) else {
-                result(FlutterError(code: "IllegalArgument", message: "Unknown characteristic:\(characteristic)", details: nil))
+                result(FlutterError(code: "IllegalArgument", message: "Unknown service's:\(service) characteristic:\(characteristic)", details: nil))
                 return
             }
             peripheral.writeValue(value.data, for: c, type: type)
@@ -252,6 +391,10 @@ extension QuickBlueDarwin: FlutterStreamHandler {
 }
 
 extension QuickBlueDarwin: CBPeripheralDelegate {
+    public func peripheral(_ peripheral: CBPeripheral, didUpdateNotificationStateFor characteristic: CBCharacteristic, error: Error?) {
+        print("didUpdateNotificationStateFor \(characteristic) \(error)")
+    }
+    
     public func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
         // print("peripheral: \(peripheral.uuid.uuidString) didDiscoverServices error: \(String(describing: error))")
         for service in peripheral.services! {
@@ -262,24 +405,29 @@ extension QuickBlueDarwin: CBPeripheralDelegate {
     }
 
     public func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
+        let s = peripheral.service2x(service: service)
+        let cs = service.characteristics!.map { peripheral.characteristic2x(characteristic: $0) } //MISC This is a little wasteful compared to doing them all in one go
         // for characteristic in service.characteristics! {
         //     print("peripheral:didDiscoverCharacteristicsForService (\(service.uuid.uuidStr), \(characteristic.uuid.uuidStr)")
         // }
         self.messageConnector.sendMessage([
             "deviceId": peripheral.uuid.uuidString,
             "ServiceState": "discovered",
-            "service": service.uuid.uuidStr,
-            "characteristics": service.characteristics!.map { $0.uuid.uuidStr }
+            "service": s as Any,
+            "characteristics": cs
         ])
     }
 
     public func peripheral(_ peripheral: CBPeripheral, didWriteValueFor characteristic: CBCharacteristic, error: Error?) {
-        let data = characteristic.value as NSData?
+        let s = peripheral.service2x(service: characteristic.service!) //DUMMY Why would service be null?  Do we need to worry?
+        let c = peripheral.characteristic2x(characteristic: characteristic)
+        // let data = characteristic.value as NSData?
         // print("peripheral:didWriteValueForCharacteristic \(characteristic.uuid.uuidStr) \(String(describing: data)) error: \(String(describing: error))")
         self.messageConnector.sendMessage([
             "deviceId": peripheral.uuid.uuidString,
             "wroteCharacteristicValue": [
-                "characteristic": characteristic.uuid.uuidStr,
+                "service": s,
+                "characteristic": c,
                 "value": characteristic.value != nil ? FlutterStandardTypedData(bytes: characteristic.value!) : nil,
                 "success": error == nil
             ]
@@ -287,12 +435,15 @@ extension QuickBlueDarwin: CBPeripheralDelegate {
     }
 
     public func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
-        let data = characteristic.value as NSData?
+        let s = peripheral.service2x(service: characteristic.service!) //DUMMY Why would service be null?  Do we need to worry?
+        let c = peripheral.characteristic2x(characteristic: characteristic)
+        // let data = characteristic.value as NSData?
         // print("peripheral:didUpdateValueForCharacteristic \(characteristic.uuid) \(String(describing: data)) error: \(String(describing: error))")
         self.messageConnector.sendMessage([
             "deviceId": peripheral.uuid.uuidString,
             "characteristicValue": [
-                "characteristic": characteristic.uuid.uuidStr,
+                "service": s as Any,
+                "characteristic": c as Any,
                 "value": FlutterStandardTypedData(bytes: characteristic.value!)
             ]
         ])

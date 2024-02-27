@@ -172,7 +172,7 @@ class QuickBluePlugin: FlutterPlugin, MethodCallHandler, EventChannel.StreamHand
       var sxi = ss[k]!!
       var sxs = s2x(k, sxi)
 
-      if (x.instanceId == service.instanceId) {
+      if (x.uuid.equals(service.uuid) && x.instanceId == service.instanceId) {
         return sxs
       }
     }
@@ -190,7 +190,7 @@ class QuickBluePlugin: FlutterPlugin, MethodCallHandler, EventChannel.StreamHand
       var cxi = cs[k]!!
       var cxs = s2x(k, cxi)
 
-      if (x.instanceId == characteristic.instanceId) {
+      if (x.uuid.equals(characteristic.uuid) && x.instanceId == characteristic.instanceId) {
         return cxs
       }
     }
