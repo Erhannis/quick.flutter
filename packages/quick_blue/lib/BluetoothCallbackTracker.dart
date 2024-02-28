@@ -26,8 +26,6 @@ class BluetoothCallbackTracker { //TODO Make static instead of singleton?
   static late final INSTANCE = BluetoothCallbackTracker._();
   final WaitGroup _initialized = WaitGroup.of(1);
 
-  //DUMMY service*char for many of these
-
   final _scanSC = StreamController<BlueScanResult>();
   late final _scanStream = _scanSC.stream.asBroadcastStream();
   final Map<DeviceId, StreamController<Pair<XString, List<XString>>>> _serviceSCs = {};
@@ -47,7 +45,7 @@ class BluetoothCallbackTracker { //TODO Make static instead of singleton?
     if (Platform.isWindows) {
       return s.toLowerCase();
     } else {
-      return s.toUpperCase(); //CHECK This may not be right for all; Android refused lowercase
+      return s.toUpperCase();
     }
   }
 
@@ -67,7 +65,7 @@ class BluetoothCallbackTracker { //TODO Make static instead of singleton?
     if (Platform.isWindows || Platform.isMacOS || Platform.isIOS || Platform.isLinux) {
       return s.toLowerCase();
     } else { // Android
-      return s.toUpperCase(); //DITTO
+      return s.toUpperCase();
     }
   }
 
@@ -426,7 +424,7 @@ String _x2ss(XString xs) {
  * abcd is not a abcd:0.<br/>
  * abcd is not wxyz, with or without suffixes.<br/>
  */
-bool isAaB(String a, String b) {
+bool uuidAisaB(String a, String b) {
   if (_isX(a)) {
     if (_isX(b)) {
       // a:i, b:j

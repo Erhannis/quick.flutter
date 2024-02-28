@@ -25,7 +25,7 @@ A cross-platform (Android/iOS/macOS/Windows/Linux) BluetoothLE plugin for Flutte
 > * Windows' APIs are little different on `discoverServices`: https://github.com/woodemi/quick_blue/issues/76
 
 Heads up!  Two things to be aware of.
-1. The system now distinguishes between multiple characteristics with identical UUIDs, because apparently that's a thing the BLE spec permits for some reason.  It does this by appending e.g. ":0" to the first instance of a UUID in a given grouping (services, or characteristics of a given service).  Subsequent instances get ":1", ":2", etc.  If you pass the library a plain uuid, :0 is assumed.  See isAaB, and uuidsEqual.
+1. The system now distinguishes between multiple characteristics with identical UUIDs, because apparently that's a thing the BLE spec permits for some reason.  It does this by appending e.g. ":0" to the first instance of a UUID in a given grouping (services, or characteristics of a given service).  Subsequent instances get ":1", ":2", etc.  If you pass the library a plain uuid, :0 is assumed.  See uuidAisaB, and uuidsEqual.  (To help note places a suffix is permitted/expected, I've added a type alias "XString".)
 2. QuickBlue itself lumps callbacks etc. together, which makes it hard to use for more than one thing at a time, so I've added BluetoothCallbackTracker.  It is recommended over raw QuickBlue, for its convenience.  For example:
 
 ```dart
