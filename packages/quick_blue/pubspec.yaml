@@ -16,6 +16,7 @@ dependencies:
   bluez: ^0.8.1
   convert: ^3.0.1
   collection: ^1.17.0
+  permission_handler: ^10.0.1
 
 dev_dependencies:
   flutter_test:
