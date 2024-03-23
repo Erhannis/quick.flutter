@@ -22,7 +22,9 @@
 #include <memory>
 #include <sstream>
 #include <algorithm>
+#include <cctype>
 #include <iomanip>
+#include <optional>
 
 #include <codecvt>
 #include <locale>
@@ -30,6 +32,8 @@
 
 #define GUID_FORMAT "%08x-%04hx-%04hx-%02hhx%02hhx-%02hhx%02hhx%02hhx%02hhx%02hhx%02hhx"
 #define GUID_ARG(guid) guid.Data1, guid.Data2, guid.Data3, guid.Data4[0], guid.Data4[1], guid.Data4[2], guid.Data4[3], guid.Data4[4], guid.Data4[5], guid.Data4[6], guid.Data4[7]
+
+//NEXT Search std::string, ensure they're all converted what need to be
 
 namespace
 {
@@ -46,11 +50,87 @@ namespace
   using flutter::EncodableMap;
   using flutter::EncodableValue;
 
+  using xstring = std::string; // uuid:0
+  using scstring = std::string; // xstring*xstring
+
   union uint16_t_union
   {
     uint16_t uint16;
     byte bytes[sizeof(uint16_t)];
   };
+
+  // 4 funcs translated with ChatGPT
+  std::string x2ss(const xstring& xs) { //DUMMY ensureX(xs) ?
+    auto i = xs.find(":");
+    if (i == std::string::npos) {
+      std::string lower_xs = xs;
+      std::transform(lower_xs.begin(), lower_xs.end(), lower_xs.begin(), [](unsigned char c){ return std::tolower(c); });
+      return lower_xs;
+    } else {
+      std::string lower_xs = xs.substr(0, i);
+      std::transform(lower_xs.begin(), lower_xs.end(), lower_xs.begin(), [](unsigned char c){ return std::tolower(c); });
+      return lower_xs;
+    }
+  }
+
+  std::optional<int> x2si(const xstring& xs) { //DUMMY ensureX(xs) ?
+    auto i = xs.find(":");
+    if (i == std::string::npos) {
+      return 0; //DUMMY //CHECK Not sure about this one
+    } else {
+      std::string substring = xs.substr(i + 1);
+      try {
+        size_t pos;
+        int value = std::stoi(substring, &pos);
+        if (pos == substring.size()) {
+          return value;
+        } else {
+          return std::nullopt;
+        }
+      } catch (const std::invalid_argument& e) {
+        return std::nullopt;
+      } catch (const std::out_of_range& e) {
+        return std::nullopt;
+      }
+    }
+  }
+
+  xstring s2x(const std::string& s, int i = 0) {
+    //DUMMY Hmmmmmm, I'm not sure about this, could conflict with native uuids
+    std::string lower_s = s;
+    std::transform(lower_s.begin(), lower_s.end(), lower_s.begin(), [](unsigned char c){ return std::tolower(c); });
+
+    // ensureX for the short-checking
+    return ensureX(lower_s + ":" + std::to_string(i));
+  }
+
+  xstring ensureX(const std::string& input) {
+    std::string s = input;
+
+    //DUMMY Hmmmmmm, I'm not sure about this, could conflict with native uuids
+    std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c){ return std::tolower(c); });
+
+    auto i = s.find(":");
+
+    if (i != std::string::npos) {
+      // There's a ':'
+      // Split and check/fix short uuid
+      std::string suffix = s.substr(i);
+      s = s.substr(0, i);
+      if (s.length() < 10) {
+        s = "0000" + s + "-" + GSS_SUFFIX;
+      }
+      s += suffix;
+    } else {
+      // No ':'
+      // Check/fix short uuid
+      if (s.length() < 10) { // Too lazy to check the actual number
+        s = "0000" + s + "-" + GSS_SUFFIX;
+      }
+      s += ":0";
+    }
+    return s;
+  }
 
   std::vector<uint8_t> to_bytevc(IBuffer buffer)
   {
@@ -143,9 +223,9 @@ namespace
   {
     BluetoothLEDevice device;
     winrt::event_token connnectionStatusChangedToken;
-    std::map<std::string, GattDeviceService> gattServices;
-    std::map<std::string, GattCharacteristic> gattCharacteristics;
-    std::map<std::string, winrt::event_token> valueChangedTokens;
+    std::map<xstring, GattDeviceService> gattServices;
+    std::map<scstring, GattCharacteristic> gattCharacteristics;
+    std::map<scstring, winrt::event_token> valueChangedTokens;
 
     BluetoothDeviceAgent(BluetoothLEDevice device, winrt::event_token connnectionStatusChangedToken)
         : device(device),
@@ -156,36 +236,60 @@ namespace
       device = nullptr;
     }
 
-    IAsyncOperation<GattDeviceService> GetServiceAsync(std::string service)
+    IAsyncOperation<GattDeviceService> GetServiceAsync(xstring service)
     {
+      auto service = ensureX(service);
+
       if (gattServices.count(service) == 0)
       {
         auto serviceResult = co_await device.GetGattServicesAsync();
         if (serviceResult.Status() != GattCommunicationStatus::Success)
           co_return nullptr;
 
-        for (auto s : serviceResult.Services())
-          if (to_uuidstr(s.Uuid()) == service)
-            gattServices.insert(std::make_pair(service, s));
+        std::map<std::string, int> servicesMap;
+        for (auto s : serviceResult.Services()) {
+          std::string k = to_uuidstr(s.Uuid());
+          servicesMap[k] = servicesMap.find(k) == servicesMap.end() ? 0 : servicesMap[k] + 1;
+          int sxi = servicesMap[k];
+          XString sxs = s2x(k, sxi);
+
+          if (sxs == service) {
+            gattServices.insert(std::make_pair(sxs, s));
+            co_return s;
+          }
+        }
+        co_return nullptr;
       }
       co_return gattServices.at(service);
     }
 
-    IAsyncOperation<GattCharacteristic> GetCharacteristicAsync(std::string service, std::string characteristic)
+    IAsyncOperation<GattCharacteristic> GetCharacteristicAsync(xstring service, xstring characteristic)
     {
-      if (gattCharacteristics.count(characteristic) == 0)
-      {
-        auto gattService = co_await GetServiceAsync(service);
+      auto service = ensureX(service);
+      auto characteristic = ensureX(characteristic);
+      auto id = service + "*" + characteristic;
 
-        auto characteristicResult = co_await gattService.GetCharacteristicsAsync();
+      if (gattCharacteristics.count(id) == 0)
+      {
+        auto s = co_await GetServiceAsync(service);
+
+        auto characteristicResult = co_await s.GetCharacteristicsAsync();
         if (characteristicResult.Status() != GattCommunicationStatus::Success)
           co_return nullptr;
 
-        for (auto c : characteristicResult.Characteristics())
-          if (to_uuidstr(c.Uuid()) == characteristic)
-            gattCharacteristics.insert(std::make_pair(characteristic, c));
+        std::map<std::string, int> characteristicsMap;
+        for (auto c : characteristicResult.Characteristics()) {
+          std::string ck = to_uuidstr(c.Uuid());
+          characteristicsMap[ck] = characteristicsMap.find(ck) == characteristicsMap.end() ? 0 : characteristicsMap[ck] + 1;
+          int cxi = characteristicsMap[ck];
+          XString cxs = s2x(ck, cxi);
+          if (cxs == characteristic) {
+            gattCharacteristics.insert(std::make_pair(id, c));
+            return c;
+          }
+        }
       }
-      co_return gattCharacteristics.at(characteristic);
+      co_return gattCharacteristics.at(id);
     }
   };
 
@@ -233,11 +337,11 @@ namespace
     void CleanConnection(uint64_t bluetoothAddress);
     winrt::fire_and_forget DiscoverServicesAsync(BluetoothDeviceAgent &bluetoothDeviceAgent);
 
-    winrt::fire_and_forget SetNotifiableAsync(BluetoothDeviceAgent &bluetoothDeviceAgent, std::string service, std::string characteristic, std::string bleInputProperty);
+    winrt::fire_and_forget SetNotifiableAsync(BluetoothDeviceAgent &bluetoothDeviceAgent, xstring service, xstring characteristic, std::string bleInputProperty);
     winrt::fire_and_forget RequestMtuAsync(BluetoothDeviceAgent &bluetoothDeviceAgent, uint64_t expectedMtu);
-    winrt::fire_and_forget ReadValueAsync(GattCharacteristic &gattCharacteristic);
-    winrt::fire_and_forget WriteValueAsync(BluetoothDeviceAgent &bluetoothDeviceAgent, std::string service, std::string characteristic, std::vector<uint8_t> value, std::string bleOutputProperty);
-    void QuickBluePlugin::GattCharacteristic_ValueChanged(GattCharacteristic sender, GattValueChangedEventArgs args);
+    winrt::fire_and_forget ReadValueAsync(GattCharacteristic &gattCharacteristic, xstring service, xstring characteristic);
+    winrt::fire_and_forget WriteValueAsync(BluetoothDeviceAgent &bluetoothDeviceAgent, xstring service, xstring characteristic, std::vector<uint8_t> value, std::string bleOutputProperty);
+    void QuickBluePlugin::GattCharacteristic_ValueChanged(GattCharacteristic sender, GattValueChangedEventArgs args, xstring service, xstring characteristic);
   };
 
   // static
@@ -344,7 +448,7 @@ namespace
         }
 
         auto args = std::get<EncodableMap>(*method_call.arguments());
-        auto it = args.find(EncodableValue("serviceUUIDs"));
+        auto it = args.find(EncodableValue("serviceUUIDs")); //DUMMY string not xstring
         if (it != args.end() && std::holds_alternative<EncodableList>(it->second)) {
           auto serviceUUIDs = std::get<EncodableList>(it->second);
 
@@ -427,8 +531,8 @@ namespace
     {
       auto args = std::get<EncodableMap>(*method_call.arguments());
       auto deviceId = std::get<std::string>(args[EncodableValue("deviceId")]);
-      auto service = std::get<std::string>(args[EncodableValue("service")]);
-      auto characteristic = std::get<std::string>(args[EncodableValue("characteristic")]);
+      auto service = std::get<xstring>(args[EncodableValue("service")]);
+      auto characteristic = std::get<xstring>(args[EncodableValue("characteristic")]);
       auto bleInputProperty = std::get<std::string>(args[EncodableValue("bleInputProperty")]);
       auto it = connectedDevices.find(std::stoull(deviceId));
       if (it == connectedDevices.end())
@@ -437,6 +541,9 @@ namespace
         return;
       }
 
+      service = ensureX(service);
+      characteristic = ensureX(characteristic);
+
       SetNotifiableAsync(*it->second, service, characteristic, bleInputProperty);
       result->Success(nullptr);
     }
@@ -444,14 +551,17 @@ namespace
     {
       auto args = std::get<EncodableMap>(*method_call.arguments());
       auto deviceId = std::get<std::string>(args[EncodableValue("deviceId")]);
-      auto service = std::get<std::string>(args[EncodableValue("service")]);
-      auto characteristic = std::get<std::string>(args[EncodableValue("characteristic")]);
+      auto service = std::get<xstring>(args[EncodableValue("service")]);
+      auto characteristic = std::get<xstring>(args[EncodableValue("characteristic")]);
       auto it = connectedDevices.find(std::stoull(deviceId));
       if (it == connectedDevices.end())
       {
         result->Error("IllegalArgument", "Unknown devicesId:" + deviceId);
         return;
       }
+
+      service = ensureX(service);
+      characteristic = ensureX(characteristic);
 
       auto bluetoothAgent = *it->second;
       auto async_c = bluetoothAgent.GetCharacteristicAsync(service, characteristic);
@@ -470,8 +580,8 @@ namespace
     {
       auto args = std::get<EncodableMap>(*method_call.arguments());
       auto deviceId = std::get<std::string>(args[EncodableValue("deviceId")]);
-      auto service = std::get<std::string>(args[EncodableValue("service")]);
-      auto characteristic = std::get<std::string>(args[EncodableValue("characteristic")]);
+      auto service = std::get<xstring>(args[EncodableValue("service")]);
+      auto characteristic = std::get<xstring>(args[EncodableValue("characteristic")]);
       auto value = std::get<std::vector<uint8_t>>(args[EncodableValue("value")]);
       auto bleOutputProperty = std::get<std::string>(args[EncodableValue("bleOutputProperty")]);
       auto it = connectedDevices.find(std::stoull(deviceId));
@@ -480,6 +590,9 @@ namespace
         result->Error("IllegalArgument", "Unknown devicesId:" + deviceId);
         return;
       }
+
+      service = ensureX(service);
+      characteristic = ensureX(characteristic);
 
       WriteValueAsync(*it->second, service, characteristic, value, bleOutputProperty);
       result->Success(nullptr);
@@ -696,20 +809,32 @@ namespace
       co_return;
     }
 
-    for (auto s : serviceResult.Services())
-    {
-      auto characteristicResult = co_await s.GetCharacteristicsAsync();
+    std::map<std::string, int> servicesMap;
+    for (auto s : serviceResult.Services()) {
+      std::string k = to_uuidstr(s.Uuid());
+      servicesMap[k] = servicesMap.find(k) == servicesMap.end() ? 0 : servicesMap[k] + 1;
+      int sxi = servicesMap[k];
+      XString sxs = s2x(k, sxi);
+
+      auto characteristicResult = co_await s.GetCharacteristicsAsync(); //CHECK I'm assuming they're returned in the same order every time
       auto msg = EncodableMap{
           {"deviceId", std::to_string(bluetoothDeviceAgent.device.BluetoothAddress())},
           {"ServiceState", "discovered"},
-          {"service", to_uuidstr(s.Uuid())}};
+          {"service", sxs}};
       if (characteristicResult.Status() == GattCommunicationStatus::Success)
       {
         EncodableList characteristics;
-        for (auto c : characteristicResult.Characteristics())
-        {
-          characteristics.push_back(to_uuidstr(c.Uuid()));
+
+        std::map<std::string, int> characteristicsMap;
+        for (auto c : characteristicResult.Characteristics()) {
+          std::string ck = to_uuidstr(c.Uuid());
+          characteristicsMap[ck] = characteristicsMap.find(ck) == characteristicsMap.end() ? 0 : characteristicsMap[ck] + 1;
+          int cxi = characteristicsMap[ck];
+          XString cxs = s2x(ck, cxi);
+
+          characteristics.push_back(cxs);
         }
+
         msg.insert({"characteristics", characteristics});
       }
       message_connector_->Send(msg);
@@ -725,8 +850,12 @@ namespace
     });
   }
 
-  winrt::fire_and_forget QuickBluePlugin::SetNotifiableAsync(BluetoothDeviceAgent &bluetoothDeviceAgent, std::string service, std::string characteristic, std::string bleInputProperty)
+  winrt::fire_and_forget QuickBluePlugin::SetNotifiableAsync(BluetoothDeviceAgent &bluetoothDeviceAgent, xstring service, xstring characteristic, std::string bleInputProperty)
   {
+    auto service = ensureX(service);
+    auto characteristic = ensureX(characteristic);
+    auto id = service+"*"+characteristic;
+
     auto gattCharacteristic = co_await bluetoothDeviceAgent.GetCharacteristicAsync(service, characteristic);
     auto descriptorValue = bleInputProperty == "notification" ? GattClientCharacteristicConfigurationDescriptorValue::Notify
                            : bleInputProperty == "indication" ? GattClientCharacteristicConfigurationDescriptorValue::Indicate
@@ -737,38 +866,52 @@ namespace
 
     if (bleInputProperty != "disabled")
     {
-      bluetoothDeviceAgent.valueChangedTokens[characteristic] = gattCharacteristic.ValueChanged({this, &QuickBluePlugin::GattCharacteristic_ValueChanged});
+      std::function<std::function<void(GattCharacteristic, GattValueChangedEventArgs)>(xstring, xstring)> curry_callback = [](int x) {
+          return [s, c](GattCharacteristic sender, GattValueChangedEventArgs args) { return QuickBluePlugin::GattCharacteristic_ValueChanged(sender, args, x, y); };
+      };
+      // ChatGPT says this is passed by value, and will get cleaned up when dropped from the map...I hope she's right.
+      auto cb = curry_callback(service, characteristic);
+      bluetoothDeviceAgent.valueChangedTokens[id] = gattCharacteristic.ValueChanged({this, &cb});
     }
     else
     {
-      gattCharacteristic.ValueChanged(std::exchange(bluetoothDeviceAgent.valueChangedTokens[characteristic], {}));
+      gattCharacteristic.ValueChanged(std::exchange(bluetoothDeviceAgent.valueChangedTokens[id], {}));
     }
   }
 
-  winrt::fire_and_forget QuickBluePlugin::ReadValueAsync(GattCharacteristic &gattCharacteristic)
+  winrt::fire_and_forget QuickBluePlugin::ReadValueAsync(GattCharacteristic &gattCharacteristic, xstring service, xstring characteristic)
   {
+    auto service = ensureX(service);
+    auto characteristic = ensureX(characteristic);
+    auto id = service+"*"+characteristic;
+
     auto readValueResult = co_await gattCharacteristic.ReadValueAsync();
-    auto uuid = to_uuidstr(gattCharacteristic.Uuid());
     auto bytes = to_bytevc(readValueResult.Value());
-    OutputDebugString((L"ReadValueAsync " + winrt::to_hstring(uuid) + L", " + winrt::to_hstring(to_hexstring(bytes)) + L"\n").c_str());
+    OutputDebugString((L"ReadValueAsync " + winrt::to_hstring(id) + L", " + winrt::to_hstring(to_hexstring(bytes)) + L"\n").c_str());
     message_connector_->Send(EncodableMap{
         {"deviceId", std::to_string(gattCharacteristic.Service().Device().BluetoothAddress())},
         {"characteristicValue", EncodableMap{
-                                    {"characteristic", uuid},
+                                    {"service", service},
+                                    {"characteristic", characteristic},
                                     {"value", bytes},
                                 }},
     });
   }
 
-  winrt::fire_and_forget QuickBluePlugin::WriteValueAsync(BluetoothDeviceAgent &bluetoothDeviceAgent, std::string service, std::string characteristic, std::vector<uint8_t> value, std::string bleOutputProperty)
+  winrt::fire_and_forget QuickBluePlugin::WriteValueAsync(BluetoothDeviceAgent &bluetoothDeviceAgent, xstring service, xstring characteristic, std::vector<uint8_t> value, std::string bleOutputProperty)
   {
+    auto service = ensureX(service);
+    auto characteristic = ensureX(characteristic);
+    auto id = service+"*"+characteristic;
+
     auto gattCharacteristic = co_await bluetoothDeviceAgent.GetCharacteristicAsync(service, characteristic);
     auto writeOption = bleOutputProperty.compare("withoutResponse") == 0 ? GattWriteOption::WriteWithoutResponse : GattWriteOption::WriteWithResponse;
     auto writeValueStatus = co_await gattCharacteristic.WriteValueAsync(from_bytevc(value), writeOption);
-    OutputDebugString((L"WriteValueAsync " + winrt::to_hstring(characteristic) + L", " + winrt::to_hstring(to_hexstring(value)) + L", " + winrt::to_hstring((int32_t)writeValueStatus) + L"\n").c_str());
+    OutputDebugString((L"WriteValueAsync " + winrt::to_hstring(id) + L", " + winrt::to_hstring(to_hexstring(value)) + L", " + winrt::to_hstring((int32_t)writeValueStatus) + L"\n").c_str());
     message_connector_->Send(EncodableMap{
         {"deviceId", std::to_string(gattCharacteristic.Service().Device().BluetoothAddress())},
         {"wroteCharacteristicValue", EncodableMap{
+                                    {"service", service},
                                     {"characteristic", characteristic},
                                     {"value", value},
                                     {"success", writeValueStatus == GattCommunicationStatus::Success},
@@ -776,15 +919,19 @@ namespace
     });
   }
 
-  void QuickBluePlugin::GattCharacteristic_ValueChanged(GattCharacteristic sender, GattValueChangedEventArgs args)
+  void QuickBluePlugin::GattCharacteristic_ValueChanged(GattCharacteristic sender, GattValueChangedEventArgs args, xstring service, xstring characteristic)
   {
-    auto uuid = to_uuidstr(sender.Uuid());
+    auto service = ensureX(service);
+    auto characteristic = ensureX(characteristic);
+    auto id = service+"*"+characteristic;
+
     auto bytes = to_bytevc(args.CharacteristicValue());
-    OutputDebugString((L"GattCharacteristic_ValueChanged " + winrt::to_hstring(uuid) + L", " + winrt::to_hstring(to_hexstring(bytes)) + L"\n").c_str());
+    OutputDebugString((L"GattCharacteristic_ValueChanged " + winrt::to_hstring(id) + L", " + winrt::to_hstring(to_hexstring(bytes)) + L"\n").c_str());
     message_connector_->Send(EncodableMap{
         {"deviceId", std::to_string(sender.Service().Device().BluetoothAddress())},
         {"characteristicValue", EncodableMap{
-                                    {"characteristic", uuid},
+                                    {"service", service},
+                                    {"characteristic", characteristic},
                                     {"value", bytes},
                                 }},
     });

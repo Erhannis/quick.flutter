@@ -14,7 +14,7 @@ let GATT_HEADER_LENGTH = 3
 
 let GSS_SUFFIX = "0000-1000-8000-00805f9b34fb"
 
-// 6 funcs translated with ChatGPT
+// 4 funcs translated with ChatGPT
 func x2ss(xs: XString) -> String { //DUMMY ensureX(xs) ?
     let i = xs.firstIndex(of: ":")
     if i == nil {
