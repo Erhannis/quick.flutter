@@ -32,6 +32,7 @@
 
 #define GUID_FORMAT "%08x-%04hx-%04hx-%02hhx%02hhx-%02hhx%02hhx%02hhx%02hhx%02hhx%02hhx"
 #define GUID_ARG(guid) guid.Data1, guid.Data2, guid.Data3, guid.Data4[0], guid.Data4[1], guid.Data4[2], guid.Data4[3], guid.Data4[4], guid.Data4[5], guid.Data4[6], guid.Data4[7]
+#define GSS_SUFFIX "0000-1000-8000-00805f9b34fb"
 
 //NEXT Search std::string, ensure they're all converted what need to be
 
@@ -88,20 +89,13 @@ namespace
           return std::nullopt;
         }
       } catch (const std::invalid_argument& e) {
+        (void)e; // Avoid "unused" warning
         return std::nullopt;
       } catch (const std::out_of_range& e) {
+        (void)e; // Avoid "unused" warning
         return std::nullopt;
       }
     }
-  }
-
-  xstring s2x(const std::string& s, int i = 0) {
-    //DUMMY Hmmmmmm, I'm not sure about this, could conflict with native uuids
-    std::string lower_s = s;
-    std::transform(lower_s.begin(), lower_s.end(), lower_s.begin(), [](unsigned char c){ return std::tolower(c); });
-
-    // ensureX for the short-checking
-    return ensureX(lower_s + ":" + std::to_string(i));
   }
 
   xstring ensureX(const std::string& input) {
@@ -130,6 +124,15 @@ namespace
       s += ":0";
     }
     return s;
+  }
+
+  xstring s2x(const std::string& s, int i = 0) {
+    //DUMMY Hmmmmmm, I'm not sure about this, could conflict with native uuids
+    std::string lower_s = s;
+    std::transform(lower_s.begin(), lower_s.end(), lower_s.begin(), [](unsigned char c){ return std::tolower(c); });
+
+    // ensureX for the short-checking
+    return ensureX(lower_s + ":" + std::to_string(i));
   }
 
   std::vector<uint8_t> to_bytevc(IBuffer buffer)
@@ -238,7 +241,7 @@ namespace
 
     IAsyncOperation<GattDeviceService> GetServiceAsync(xstring service)
     {
-      auto service = ensureX(service);
+      service = ensureX(service);
 
       if (gattServices.count(service) == 0)
       {
@@ -251,7 +254,7 @@ namespace
           std::string k = to_uuidstr(s.Uuid());
           servicesMap[k] = servicesMap.find(k) == servicesMap.end() ? 0 : servicesMap[k] + 1;
           int sxi = servicesMap[k];
-          XString sxs = s2x(k, sxi);
+          xstring sxs = s2x(k, sxi);
 
           if (sxs == service) {
             gattServices.insert(std::make_pair(sxs, s));
@@ -265,8 +268,8 @@ namespace
 
     IAsyncOperation<GattCharacteristic> GetCharacteristicAsync(xstring service, xstring characteristic)
     {
-      auto service = ensureX(service);
-      auto characteristic = ensureX(characteristic);
+      service = ensureX(service);
+      characteristic = ensureX(characteristic);
       auto id = service + "*" + characteristic;
 
       if (gattCharacteristics.count(id) == 0)
@@ -282,7 +285,7 @@ namespace
           std::string ck = to_uuidstr(c.Uuid());
           characteristicsMap[ck] = characteristicsMap.find(ck) == characteristicsMap.end() ? 0 : characteristicsMap[ck] + 1;
           int cxi = characteristicsMap[ck];
-          XString cxs = s2x(ck, cxi);
+          xstring cxs = s2x(ck, cxi);
           if (cxs == characteristic) {
             gattCharacteristics.insert(std::make_pair(id, c));
             return c;
@@ -573,7 +576,7 @@ namespace
             result_pointer->Error("IllegalArgument", "Unknown characteristic:" + characteristic);
             return;
           }
-          ReadValueAsync(c);
+          ReadValueAsync(c, service, characteristic);
           result_pointer->Success(nullptr); });
     }
     else if (method_name.compare("writeValue") == 0)
@@ -814,7 +817,7 @@ namespace
       std::string k = to_uuidstr(s.Uuid());
       servicesMap[k] = servicesMap.find(k) == servicesMap.end() ? 0 : servicesMap[k] + 1;
       int sxi = servicesMap[k];
-      XString sxs = s2x(k, sxi);
+      xstring sxs = s2x(k, sxi);
 
       auto characteristicResult = co_await s.GetCharacteristicsAsync(); //CHECK I'm assuming they're returned in the same order every time
       auto msg = EncodableMap{
@@ -830,7 +833,7 @@ namespace
           std::string ck = to_uuidstr(c.Uuid());
           characteristicsMap[ck] = characteristicsMap.find(ck) == characteristicsMap.end() ? 0 : characteristicsMap[ck] + 1;
           int cxi = characteristicsMap[ck];
-          XString cxs = s2x(ck, cxi);
+          xstring cxs = s2x(ck, cxi);
 
           characteristics.push_back(cxs);
         }
@@ -852,8 +855,8 @@ namespace
 
   winrt::fire_and_forget QuickBluePlugin::SetNotifiableAsync(BluetoothDeviceAgent &bluetoothDeviceAgent, xstring service, xstring characteristic, std::string bleInputProperty)
   {
-    auto service = ensureX(service);
-    auto characteristic = ensureX(characteristic);
+    service = ensureX(service);
+    characteristic = ensureX(characteristic);
     auto id = service+"*"+characteristic;
 
     auto gattCharacteristic = co_await bluetoothDeviceAgent.GetCharacteristicAsync(service, characteristic);
@@ -866,12 +869,16 @@ namespace
 
     if (bleInputProperty != "disabled")
     {
-      std::function<std::function<void(GattCharacteristic, GattValueChangedEventArgs)>(xstring, xstring)> curry_callback = [](int x) {
-          return [s, c](GattCharacteristic sender, GattValueChangedEventArgs args) { return QuickBluePlugin::GattCharacteristic_ValueChanged(sender, args, x, y); };
-      };
+      std::function<std::function<void(GattCharacteristic, GattValueChangedEventArgs)>(xstring, xstring)> curry_callback =
+        [](xstring s, xstring c) {
+            return [s, c](GattCharacteristic sender, GattValueChangedEventArgs args) {
+                return QuickBluePlugin::GattCharacteristic_ValueChanged(sender, args, s, c);
+            };
+        };
       // ChatGPT says this is passed by value, and will get cleaned up when dropped from the map...I hope she's right.
       auto cb = curry_callback(service, characteristic);
-      bluetoothDeviceAgent.valueChangedTokens[id] = gattCharacteristic.ValueChanged({this, &cb});
+
+      bluetoothDeviceAgent.valueChangedTokens[id] = gattCharacteristic.ValueChanged({this, cb}); //CHECK This may be wrong
     }
     else
     {
@@ -881,8 +888,8 @@ namespace
 
   winrt::fire_and_forget QuickBluePlugin::ReadValueAsync(GattCharacteristic &gattCharacteristic, xstring service, xstring characteristic)
   {
-    auto service = ensureX(service);
-    auto characteristic = ensureX(characteristic);
+    service = ensureX(service);
+    characteristic = ensureX(characteristic);
     auto id = service+"*"+characteristic;
 
     auto readValueResult = co_await gattCharacteristic.ReadValueAsync();
@@ -900,8 +907,8 @@ namespace
 
   winrt::fire_and_forget QuickBluePlugin::WriteValueAsync(BluetoothDeviceAgent &bluetoothDeviceAgent, xstring service, xstring characteristic, std::vector<uint8_t> value, std::string bleOutputProperty)
   {
-    auto service = ensureX(service);
-    auto characteristic = ensureX(characteristic);
+    service = ensureX(service);
+    characteristic = ensureX(characteristic);
     auto id = service+"*"+characteristic;
 
     auto gattCharacteristic = co_await bluetoothDeviceAgent.GetCharacteristicAsync(service, characteristic);
@@ -921,8 +928,8 @@ namespace
 
   void QuickBluePlugin::GattCharacteristic_ValueChanged(GattCharacteristic sender, GattValueChangedEventArgs args, xstring service, xstring characteristic)
   {
-    auto service = ensureX(service);
-    auto characteristic = ensureX(characteristic);
+    service = ensureX(service);
+    characteristic = ensureX(characteristic);
     auto id = service+"*"+characteristic;
 
     auto bytes = to_bytevc(args.CharacteristicValue());
