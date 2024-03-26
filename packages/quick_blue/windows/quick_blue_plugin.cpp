@@ -869,12 +869,14 @@ namespace
 
     if (bleInputProperty != "disabled")
     {
+      // Assuming curry_callback is defined inside a member function of QuickBluePlugin
       std::function<std::function<void(GattCharacteristic, GattValueChangedEventArgs)>(xstring, xstring)> curry_callback =
-        [](xstring s, xstring c) {
-            return [s, c](GattCharacteristic sender, GattValueChangedEventArgs args) {
-                return QuickBluePlugin::GattCharacteristic_ValueChanged(sender, args, s, c);
+        [this](xstring s, xstring c) {
+            return [this, s, c](GattCharacteristic sender, GattValueChangedEventArgs args) {
+                return this->GattCharacteristic_ValueChanged(sender, args, s, c);
             };
         };
+
       // ChatGPT says this is passed by value, and will get cleaned up when dropped from the map...I hope she's right.
       auto cb = curry_callback(service, characteristic);
 
