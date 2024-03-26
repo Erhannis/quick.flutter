@@ -165,7 +165,7 @@ class BluetoothCallbackTracker { //TODO Make static instead of singleton?
     serviceId = _normalizeService(serviceId);
     characteristicId = _normalizeService(characteristicId);
     _ensureCharValue(deviceId, serviceId, characteristicId);
-    return _charValueStreams[Pair(deviceId, "$serviceId*$characteristicId")]!;
+    return _charValueStreams[Pair(deviceId, Pair(serviceId, characteristicId))]!;
   }
 
   /**
@@ -177,7 +177,7 @@ class BluetoothCallbackTracker { //TODO Make static instead of singleton?
     serviceId = _normalizeService(serviceId);
     characteristicId = _normalizeService(characteristicId);
     _ensureWroteChar(deviceId, serviceId, characteristicId);
-    return _wroteCharStreams[Pair(deviceId, "$serviceId*$characteristicId")]!;
+    return _wroteCharStreams[Pair(deviceId, Pair(serviceId, characteristicId))]!;
   }
 
   Set<Token> _scanTokens = {};
@@ -306,7 +306,7 @@ class BluetoothCallbackTracker { //TODO Make static instead of singleton?
     characteristicId = _normalizeService(characteristicId);
     log('_handleValueChange $deviceId, $serviceId, $characteristicId, ${value}');
     _ensureCharValue(deviceId, serviceId, characteristicId);
-    _charValueSCs[Pair(deviceId, "$serviceId*$characteristicId")]!.add(value);
+    _charValueSCs[Pair(deviceId, Pair(serviceId, characteristicId))]!.add(value);
     _ensureDeviceValue(deviceId);
     _deviceValueSCs[deviceId]!.add(Pair(Pair(serviceId, characteristicId), value));
   }
@@ -319,7 +319,7 @@ class BluetoothCallbackTracker { //TODO Make static instead of singleton?
     characteristicId = _normalizeService(characteristicId);
     // log('_handleWroteChar $deviceId, $characteristicId, ${value}, $success');
     _ensureWroteChar(deviceId, serviceId, characteristicId);
-    _wroteCharSCs[Pair(deviceId, "$serviceId*$characteristicId")]!.add(Pair(value, success));
+    _wroteCharSCs[Pair(deviceId, Pair(serviceId, characteristicId))]!.add(Pair(value, success));
   }
 }
 
