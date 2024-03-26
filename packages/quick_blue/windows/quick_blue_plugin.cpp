@@ -65,11 +65,11 @@ namespace
     auto i = xs.find(":");
     if (i == std::string::npos) {
       std::string lower_xs = xs;
-      std::transform(lower_xs.begin(), lower_xs.end(), lower_xs.begin(), [](unsigned char c){ return std::tolower(c); });
+      std::transform(lower_xs.begin(), lower_xs.end(), lower_xs.begin(), [](unsigned char c){ return (unsigned char)std::tolower(c); });
       return lower_xs;
     } else {
       std::string lower_xs = xs.substr(0, i);
-      std::transform(lower_xs.begin(), lower_xs.end(), lower_xs.begin(), [](unsigned char c){ return std::tolower(c); });
+      std::transform(lower_xs.begin(), lower_xs.end(), lower_xs.begin(), [](unsigned char c){ return (unsigned char)std::tolower(c); });
       return lower_xs;
     }
   }
@@ -102,7 +102,7 @@ namespace
     std::string s = input;
 
     //DUMMY Hmmmmmm, I'm not sure about this, could conflict with native uuids
-    std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c){ return std::tolower(c); });
+    std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c){ return (unsigned char)std::tolower(c); });
 
     auto i = s.find(":");
 
@@ -129,7 +129,7 @@ namespace
   xstring s2x(const std::string& s, int i = 0) {
     //DUMMY Hmmmmmm, I'm not sure about this, could conflict with native uuids
     std::string lower_s = s;
-    std::transform(lower_s.begin(), lower_s.end(), lower_s.begin(), [](unsigned char c){ return std::tolower(c); });
+    std::transform(lower_s.begin(), lower_s.end(), lower_s.begin(), [](unsigned char c){ return (unsigned char)std::tolower(c); });
 
     // ensureX for the short-checking
     return ensureX(lower_s + ":" + std::to_string(i));
