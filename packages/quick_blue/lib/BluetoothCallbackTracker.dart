@@ -312,8 +312,8 @@ class BluetoothCallbackTracker { //TODO Make static instead of singleton?
   }
 
   void _handleWroteChar(DeviceId deviceId, XString serviceId, XString characteristicId, Uint8List? value, bool success) {
-    log0("_handleWroteChar $deviceId $serviceId $characteristicId $success");
-    // log0("_handleWroteChar $deviceId $characteristicId $success");
+    log("_handleWroteChar $deviceId $serviceId $characteristicId $success");
+    // log("_handleWroteChar $deviceId $characteristicId $success");
     deviceId = _normalizeDevice(deviceId);
     serviceId = _normalizeService(serviceId);
     characteristicId = _normalizeService(characteristicId);
@@ -468,31 +468,31 @@ Future<bool> requestBluetooth() async {
         Permission.location,
       ].request();
       if (statuses.values.any((v) => !v.isGranted)) {
-        log0("permission(s) denied");
+        log("permission(s) denied");
         return false;
       }
       statuses = await [
         Permission.locationAlways,
       ].request();
       if (statuses.values.any((v) => !v.isGranted)) {
-        log0("locationAlways permission denied");
+        log("locationAlways permission denied");
         return false;
       }
     } else {
       // I think the WinBle check is bugged, so we're only checking on Mac
       var s = await BluetoothCallbackTracker.INSTANCE.isBluetoothAvailable();
-      log0("BLE available 1: $s");
+      log("BLE available 1: $s");
       // Logger.root.info('BLE available 1: $s');
       if (!s) {
         await Future.delayed(Duration(milliseconds: 1000)); // Mac: for some reason this works
         s = await BluetoothCallbackTracker.INSTANCE.isBluetoothAvailable();
-        log0("BLE available 2: $s");
+        log("BLE available 2: $s");
         // Logger.root.info('BLE available 2: $s');
       }
     }
   }
   var sub = BluetoothCallbackTracker.INSTANCE.subscribeForScanResults().listen((event) {
-    log0("initscan: ${event.deviceId} ${event.name} ${event.rssi}");
+    log("initscan: ${event.deviceId} ${event.name} ${event.rssi}");
   },);
   unawaited(BluetoothCallbackTracker.INSTANCE.startScan().then((t) async { // Some platforms don't let you connect to a device unless you've scanned it first.  Eyeroll.
     await Future.delayed(Duration(seconds: 30)); //TODO Parameterize?
@@ -500,9 +500,4 @@ Future<bool> requestBluetooth() async {
     await sub.cancel();
   }));
   return true;
-}
-
-void log0(String s, {int level = 0}) {
-  log(s, level: level);
-  // Logger.root.info(s); //THINK level
 }
