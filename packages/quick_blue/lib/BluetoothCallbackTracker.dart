@@ -12,7 +12,8 @@ const GSS_SUFFIX = "-0000-1000-8000-00805f9b34fb";
 
 typedef XString = String;
 typedef DeviceId = String;
-typedef SCString = String;
+//typedef SCString = String; //CHECK Eh...I'm not totally sure which direction to go.  Should probably at least add some more helper functions.
+typedef SCString = Pair<XString, XString>;
 
 /**
  * QuickBlue only provides a single "setConnectionHandler", for all devices.<br/>
@@ -106,7 +107,7 @@ class BluetoothCallbackTracker { //TODO Make static instead of singleton?
     deviceId = _normalizeDevice(deviceId);
     serviceId = _normalizeService(serviceId);
     characteristicId = _normalizeService(characteristicId);
-    final p = Pair(deviceId, "$serviceId*$characteristicId");
+    final p = Pair(deviceId, Pair(serviceId, characteristicId));
     if (!_charValueSCs.containsKey(p)) {
       final sc = StreamController<Uint8List>();
       _charValueSCs[p] = sc;
@@ -120,7 +121,7 @@ class BluetoothCallbackTracker { //TODO Make static instead of singleton?
     deviceId = _normalizeDevice(deviceId);
     serviceId = _normalizeService(serviceId);
     characteristicId = _normalizeService(characteristicId);
-    final p = Pair(deviceId, "$serviceId*$characteristicId");
+    final p = Pair(deviceId, Pair(serviceId, characteristicId));
     if (!_wroteCharSCs.containsKey(p)) {
       final sc = StreamController<Pair<Uint8List?, bool>>();
       _wroteCharSCs[p] = sc;
@@ -307,7 +308,7 @@ class BluetoothCallbackTracker { //TODO Make static instead of singleton?
     _ensureCharValue(deviceId, serviceId, characteristicId);
     _charValueSCs[Pair(deviceId, "$serviceId*$characteristicId")]!.add(value);
     _ensureDeviceValue(deviceId);
-    _deviceValueSCs[deviceId]!.add(Pair("$serviceId*$characteristicId", value));
+    _deviceValueSCs[deviceId]!.add(Pair(Pair(serviceId, characteristicId), value));
   }
 
   void _handleWroteChar(DeviceId deviceId, XString serviceId, XString characteristicId, Uint8List? value, bool success) {
