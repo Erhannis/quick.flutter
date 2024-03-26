@@ -35,7 +35,8 @@
 #define GSS_SUFFIX "0000-1000-8000-00805f9b34fb"
 
 //NEXT Search std::string, ensure they're all converted what need to be
-
+//RAINY The fire_and_forget functions all just log and ignore errors - these should probably affect the results, instead
+//NEXT ...Can we do that without too much trouble?
 namespace
 {
 
@@ -936,7 +937,7 @@ namespace
         // ChatGPT says this is passed by value, and will get cleaned up when dropped from the map...I hope she's right.
         auto cb = curry_callback(service, characteristic);
 
-        bluetoothDeviceAgent.valueChangedTokens[id] = gattCharacteristic.ValueChanged({this, cb}); //CHECK This may be wrong
+        bluetoothDeviceAgent.valueChangedTokens[id] = gattCharacteristic.ValueChanged(cb); //CHECK This may be wrong
       }
       else
       {
